@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'; base-uri 'none'; form-action 'none'">
+<title>AI_GO: check a file</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 5rem;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1b2126; background: #fff; line-height: 1.6;
+  }
+  .wrap { max-width: 50rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+  h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+  .lead { color: #5a666f; margin: 0 0 1.5rem; }
+  .drop {
+    border: 2px dashed #9aa7af; border-radius: 6px;
+    padding: 2rem 1.5rem; text-align: center; color: #5a666f;
+    background: #f4f6f7; cursor: pointer;
+  }
+  .drop.over { border-color: #2b5f70; background: #e6eff1; color: #1b2126; }
+  .drop input { display: block; margin: .75rem auto 0; }
+  textarea { width: 100%; min-height: 6rem; margin-top: .75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; }
+  button { font: inherit; padding: .5rem 1rem; border: 1px solid #9aa7af; border-radius: 4px; background: #fff; cursor: pointer; }
+  .verdict {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    padding: 1rem 1.25rem; border-radius: 4px; border-left: 4px solid;
+    margin: 1.5rem 0 1rem; font-weight: 600;
+  }
+  .v-ok   { background: #e6f0e9; border-color: #2f6b45; color: #1e4a2e; }
+  .v-warn { background: #f7efdd; border-color: #8a6410; color: #5c440b; }
+  .v-bad  { background: #f7e8e5; border-color: #96382a; color: #6b281e; }
+  .verdict small { font-weight: 400; }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+  th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e4e9eb; vertical-align: top; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: #5a666f; background: #f4f6f7; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  code { background: #f4f6f7; padding: .1em .3em; border-radius: 2px; }
+  pre { background: #f7e8e5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: .8125rem; }
+  .lvl { font-weight: 600; white-space: nowrap; }
+  .lvl-error { color: #96382a; }
+  .lvl-warn { color: #8a6410; }
+  .paths { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; list-style: none; padding: 0; }
+  .paths li { padding: .2rem 0; border-bottom: 1px solid #f0f3f4; }
+  .muted { color: #5a666f; font-size: .875rem; }
+  footer { margin-top: 3rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 id="t-title"></h1>
+  <p class="lead" id="t-lead"></p>
+
+  <div class="drop" id="drop">
+    <span id="t-drop"></span>
+    <input type="file" id="file" accept=".html,.htm,.js,.txt">
+    <p class="muted"><label for="host" id="t-hostLabel"></label>
+      <input type="text" id="host" size="26" autocomplete="off" spellcheck="false"></p>
+  </div>
+  <p class="muted" id="t-exec"></p>
+
+  <details>
+    <summary id="t-pasteHead"></summary>
+    <textarea id="paste" spellcheck="false"></textarea>
+    <button type="button" id="pasteGo"></button>
+  </details>
+
+  <div id="out"></div>
+
+  <footer class="muted" id="t-foot"></footer>
+</div>
+
+<script>
+/* =============================================================================
+ * check.html: the validator. It never ships to a visitor.
+ *
+ * IT DOES NOT CARRY A SECOND COPY OF THE PUBLICATION GUARD. It extracts the
+ * engine block from the file you drop and runs THAT engine's structure() and
+ * guard(): the publication verdict you read here is the one your own page will
+ * render, not an approximation of it. The origin policy therefore exists once
+ * in this repository, in the engine block of ai-go.html.
+ *
+ * What this page adds, and what deliberately never runs in a visitor's
+ * browser: path enumeration, unreachable nodes, cycles, dead ends, polarity
+ * declarations, review age, source-text hygiene, and a routing diff between
+ * two versions of a file.
+ *
+ * The pure half of this page (marker parsing, block extraction, path
+ * enumeration, the extra coherence checks, the source-text lint) is returned
+ * as AI_GO_CHECK and is what the harness exercises: there is one enumerator in
+ * this repository, not one here and one in the tests.
+ * ========================================================================== */
+var AI_GO_CHECK = (function () {
+  'use strict';
+
+  /* Written by code point, never typed: this page is scanned by its own lint. */
+  var NBSP = String.fromCharCode(160);
+
+  var S = {
+    title: 'Check a file',
+    lead: 'Drop your ai-go.html file below. Nothing is sent anywhere: everything happens in your browser.',
+    drop: 'Drag a file here, or choose one:',
+    hostLabel: 'Domain where you will publish it (optional):',
+    pageLang: 'The page declares lang="{page}" but the questionnaire is written in "{tree}". A screen reader would read it with the wrong voice.',
+    verdictFor: 'Publication verdict computed for {host}.',
+    verdictForNone: 'Publication verdict for an unnamed domain: everything is checked except the domain declaration itself. Type your domain above to check that too.',
+    exec: 'The file you drop is executed by your browser, exactly as it would be on your site. Only drop your own files.',
+    pasteHead: 'Or paste a block (from the begin marker to the end marker)',
+    pasteGo: 'Check this block',
+    foot: 'This page depends on no neighbouring file. It reads the engine out of the file you give it.',
+
+    syntax: 'The file could not be read',
+    syntaxHint: 'Syntax error. Most frequent causes: a missing or extra comma, or a straight apostrophe inside a single-quoted string. Open the file in an editor that underlines syntax errors.',
+    noContent: 'No content found in this file',
+    noContentHint: 'The file must declare an object variable, for example: var AI_GO_CONTENT = { ... };',
+    engineBroken: 'The engine block of this file does not run',
+    crashed: 'The check failed: ',
+
+    bad: 'Blocking errors: {n}',
+    notPublishable: 'Coherent, but NOT publishable: {n} point(s) to complete',
+    okWarn: 'Publishable, {n} warning(s)',
+    ok: 'Publishable',
+    counts: '{nodes} question(s), {results} result(s), {paths} path(s)',
+
+    fileH: 'The file',
+    markersOk: 'The six markers are present, once each, in order.',
+    markersBad: 'Markers missing, duplicated or out of order: {list}. An editor or a CMS has probably rewritten them.',
+    engineIntact: 'Engine {v}, intact.',
+    engineChanged: 'Engine {v}, MODIFIED LOCALLY (declared {d}, computed {c}). An update will overwrite that change.',
+    engineNone: 'No engine block in this file: the publication verdict cannot be computed, only coherence. Drop your complete ai-go.html file.',
+    prints: 'content fingerprint {hash}',
+    printsLead: 'The fingerprint is the receipt of your review: it covers the questions, the routing and the links. The engine prints it under every result of the page that is actually served, so you can compare the sheet your legal service signed with the live page. The signature fields it does not cover (publisher, review, disclaimer) are printed in clear right beside it.',
+
+    publication: 'Publication',
+    publicationLead: 'What the engine of THIS file requires before displaying the content on your site. The domain check is skipped here (local preview); everything else is identical.',
+    publicationOk: 'Nothing to complete: the engine will display this content.',
+
+    coherence: 'Coherence',
+    coherenceLead: 'The permanent check, to run on every content change. Lines marked with a cross make the engine refuse to display; the others are warnings only this page sees.',
+    coherenceOk: 'Nothing to report.',
+
+    source: 'Source-text hygiene',
+    pathsH: 'Possible paths',
+    pathsLead: 'Rule equivalence classes: a checkbox question yields two branches ("at least one" / "none"), because that is what the routing distinguishes. This is the list you read aloud with your legal service, and the list you have signed.',
+    truncated: 'Enumeration INCOMPLETE (tree too large or too deep): this list is not reliable.',
+
+    updateH: 'Update',
+    updateLead: 'Drop the old file first, then the new one: this section compares the two.',
+    updateNone: 'Drop a second file to compare.',
+    routingSame: 'The routing has not moved: {n} identical paths.',
+    routingMoved: 'The routing has moved: {a} path(s) added, {r} removed. A new legal review is due.',
+    printsSame: 'Fingerprint unchanged: {h}. Nothing that was signed has moved.',
+    printsMoved: 'Fingerprint changed: {ho} to {hn}.',
+
+    where: 'Where', msg: 'Message', level: 'Level',
+    reviewed: 'Reviewed on {date} by {by}', noReview: 'No review date',
+    jurisdiction: 'Jurisdiction: {j}', legalBasis: 'Legal basis: {b}',
+
+    line: 'line {n}',
+    literalNbsp: 'Literal non-breaking space. Write it as the six characters of the escape instead.',
+    quoteApostrophe: 'Apostrophe inside a single-quoted string. Use double quotes.',
+    markupInText: 'A text contains a sequence that would close the script block and kill the page: {seq}.',
+    angleInText: 'A text contains an angle bracket. Avoid them: nothing is ever interpreted as markup, but an open tag breaks the file.',
+    unreachableNode: 'Question unreachable from the start node.',
+    unreachableResult: 'Unreachable result.',
+    dangling: 'Path with no outcome: {path}',
+    cycle: 'Cycle detected on "{id}".',
+    badPolarity: 'Expected value for `polarity`: "direct" or "inverse".',
+    noPolarity: 'Checkbox question with no declared `polarity`. Declare it, so the intent survives review.',
+    untranslated: 'Untranslated text (a bare string where the tree declares {langs}). It will display as is in every language.',
+    defaultLangNotDeclared: 'The default language "{lang}" is not in `langs`.',
+    oldReview: 'The review is {days} days old.',
+    badReviewDate: 'Unreadable review date.'
+  };
+
+  /* ------------------------------------------------------------- utilities */
+
+  var out = null, drop = null, file = null, paste = null;   // filled by the wiring below
+  var last = null;      // the analysis being displayed
+  var previous = null;  // the one before it, for the update comparison
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function fmt(str, vars) {
+    return String(str).replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] !== undefined ? String(vars[k]) : m; });
+  }
+  function setText(id, t) { document.getElementById(id).textContent = t; }
+  function isObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function own(o, k) { return isObject(o) && Object.prototype.hasOwnProperty.call(o, k); }
+  function walkStrings(value, path, fn) {
+    if (typeof value === 'string') fn(value, path);
+    else if (Array.isArray(value)) value.forEach(function (x, i) { walkStrings(x, path + '[' + i + ']', fn); });
+    else if (value && typeof value === 'object') Object.keys(value).forEach(function (k) {
+      walkStrings(value[k], path ? path + '.' + k : k, fn);
+    });
+  }
+
+  /* ------------------------------------------------------------- markers
+   * The six markers are the whole structure of the file, so they are checked
+   * before anything else: an editor that reflowed them is the failure this
+   * form introduces, and the one an adopter cannot diagnose alone. */
+
+  var MARKS = ['AI_GO-BEGIN', 'AI_GO-CONTENT-BEGIN', 'AI_GO-CONTENT-END',
+               'AI_GO-ENGINE-BEGIN', 'AI_GO-ENGINE-END', 'AI_GO-END'];
+
+  /* A marker is a line carrying nothing but the token, except the engine one,
+   * which also carries the engine version and the hash of its own block. */
+  function markLine(text, token) {
+    var re = token === 'AI_GO-ENGINE-BEGIN'
+      ? new RegExp('^[ \\t]*' + token + ' ([0-9.]+) h:([0-9a-f]{8})[ \\t]*$', 'gm')
+      : new RegExp('^[ \\t]*' + token + '[ \\t]*$', 'gm');
+    var hits = [], m;
+    while ((m = re.exec(text))) hits.push({ index: m.index, v: m[1], h: m[2] });
+    return hits;
+  }
+  function markers(text) {
+    var found = MARKS.map(function (t) { return { token: t, hits: markLine(text, t) }; });
+    var wrong = found.filter(function (f) { return f.hits.length !== 1; }).map(function (f) { return f.token; });
+    var seen = found.filter(function (f) { return f.hits.length === 1; });
+    for (var i = 1; i < seen.length; i++) {
+      if (seen[i].hits[0].index < seen[i - 1].hits[0].index) wrong.push(seen[i].token);
+    }
+    return { found: found, wrong: wrong, ok: wrong.length === 0 };
+  }
+  /* Region between the end of the comment opened by the begin marker and the
+   * start of the comment closed by the end marker. Same rule for the content
+   * block (JavaScript comments) and the engine block (HTML comments). */
+  function between(text, beginTok, endTok, openTag, closeTag) {
+    var b = markLine(text, beginTok), e = markLine(text, endTok);
+    if (!b.length || !e.length) return null;
+    var start = text.indexOf(closeTag, b[0].index);
+    var end = text.lastIndexOf(openTag, e[0].index);
+    if (start < 0 || end < 0 || end <= start) return null;
+    return text.slice(start + closeTag.length, end);
+  }
+  function contentBlock(text) { return between(text, 'AI_GO-CONTENT-BEGIN', 'AI_GO-CONTENT-END', '/*', '*/'); }
+  function engineBlock(text) { return between(text, 'AI_GO-ENGINE-BEGIN', 'AI_GO-ENGINE-END', '<' + '!--', '--' + '>'); }
+
+  /* The tag names are assembled from pieces so that this page never contains
+   * the sequence that would close its own script block. */
+  var SCRIPT_OPEN = '<' + 'script', SCRIPT_CLOSE = '<' + '/' + 'script';
+  function innerScript(block) {
+    var i = block.lastIndexOf(SCRIPT_OPEN);
+    if (i < 0) return null;
+    var j = block.indexOf('>', i);
+    var k = block.lastIndexOf(SCRIPT_CLOSE);
+    return (j < 0 || k < j) ? null : block.slice(j + 1, k);
+  }
+  function hashOf(src) {
+    var s = String(src), h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+  }
+
+  /* ------------------------------------------------------------ evaluation
+   * The try/catch MUST wrap the evaluation itself: a syntax error is thrown at
+   * the call site, and a page that goes blank leaves the console as its only
+   * signal, which the audience of this tool does not read. */
+  function evaluate(source, trailer) {
+    try { return { value: new Function('var module;\n' + source + '\n' + trailer)() }; }
+    catch (e) { return { error: e }; }
+  }
+  function loadContent(text) {
+    var block = contentBlock(text);
+    var source = block === null ? text : block;
+    var name = (source.match(/\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*\{/) || [])[1];
+    if (!name) return { missing: true };
+    return evaluate(source, 'return ' + name + ';');
+  }
+  function loadEngine(text) {
+    var block = engineBlock(text);
+    if (block === null) return { missing: true };
+    var js = innerScript(block);
+    if (js === null) return { missing: true };
+    var r = evaluate(js, 'return AI_GO;');
+    r.declared = markLine(text, 'AI_GO-ENGINE-BEGIN')[0];
+    r.computed = hashOf(block);
+    return r;
+  }
+
+  /* ------------------------------------------------- path enumeration
+   * Rule equivalence classes, not checkbox combinations: a question with six
+   * boxes yields two branches, because that is what the routing distinguishes.
+   * Enumerating real combinations would give hundreds of thousands of paths for
+   * a single terminus, which is a report nobody reads. */
+
+  var PATH_LIMIT = 5000, PATH_DEPTH = 2000;
+
+  function branchesOf(node) {
+    if (node.type === 'multi') {
+      var rule = isObject(node.next) ? node.next : {};
+      return [{ choice: 'any', to: rule.ifAny, result: rule.ifAnyResult },
+              { choice: 'none', to: rule.else, result: rule.elseResult }];
+    }
+    return arr(node.answers).map(function (a) { return { choice: a && a.value, to: a && a.to, result: a && a.result }; });
+  }
+  function paths(tree) {
+    var list = [];
+    list.truncated = false;
+    if (!tree || !own(tree.nodes, tree.start)) return list;
+    (function walk(nodeId, trail, seen) {
+      if (list.length > PATH_LIMIT || trail.length > PATH_DEPTH) { list.truncated = true; return; }
+      var node = own(tree.nodes, nodeId) ? tree.nodes[nodeId] : null;
+      if (!node) return;
+      if (seen.indexOf(nodeId) >= 0) { list.push({ steps: trail.slice(), result: null, cycle: nodeId }); return; }
+      var seenHere = seen.concat([nodeId]);
+      branchesOf(node).forEach(function (b) {
+        var extended = trail.concat([{ node: nodeId, choice: b.choice }]);
+        /* A branch with no target, and a branch whose target does not exist,
+         * are the same thing for a reader: a Continue button that leads
+         * nowhere. Both are enumerated as dead ends rather than dropped, or a
+         * broken tree would quietly report fewer paths instead of an error. */
+        if (b.result && own(tree.results, b.result)) list.push({ steps: extended, result: b.result });
+        else if (b.to && own(tree.nodes, b.to)) walk(b.to, extended, seenHere);
+        else list.push({ steps: extended, result: null, dangling: true });
+      });
+    })(tree.start, [], []);
+    return list;
+  }
+  /* Stable textual form of a path: the comparison key between versions and the
+   * format of a frozen oracle file. Do not change it. */
+  function pathKey(p) {
+    return p.steps.map(function (s) { return s.node + '=' + s.choice; }).join(' → ') +
+           ' ⇒ ' + (p.result || (p.cycle ? 'CYCLE:' + p.cycle : 'IMPASSE'));
+  }
+  function routingDiff(a, b) {
+    var A = {}, B = {}, pa = paths(a), pb = paths(b);
+    pa.forEach(function (p) { A[pathKey(p)] = true; });
+    pb.forEach(function (p) { B[pathKey(p)] = true; });
+    return {
+      removed: Object.keys(A).filter(function (k) { return !B[k]; }),
+      added: Object.keys(B).filter(function (k) { return !A[k]; }),
+      unchanged: Object.keys(A).filter(function (k) { return B[k]; }).length,
+      /* A truncated enumeration invalidates the comparison: saying "0 path
+       * added" about a tree whose routing changed beyond the limit would be
+       * worse than saying nothing. */
+      truncated: pa.truncated || pb.truncated
+    };
+  }
+
+  /* ------------------------------------------- what only this page reports */
+
+  function extras(tree, all) {
+    var issues = [];
+    function add(level, where, key, vars) { issues.push({ level: level, where: where, message: fmt(S[key], vars) }); }
+    var langs = arr(tree.langs);
+
+    if (tree.defaultLang && langs.indexOf(tree.defaultLang) < 0) add('error', 'defaultLang', 'defaultLangNotDeclared', { lang: tree.defaultLang });
+
+    var reachedNodes = {}, reachedResults = {};
+    all.forEach(function (p) {
+      p.steps.forEach(function (st) { reachedNodes[st.node] = true; });
+      if (p.result) reachedResults[p.result] = true;
+      if (p.dangling) add('error', 'paths', 'dangling', { path: pathKey(p) });
+      if (p.cycle) add('error', 'paths', 'cycle', { id: p.cycle });
+    });
+    Object.keys(tree.nodes || {}).forEach(function (id) { if (!reachedNodes[id]) add('warn', 'nodes.' + id, 'unreachableNode'); });
+    Object.keys(tree.results || {}).forEach(function (id) { if (!reachedResults[id]) add('warn', 'results.' + id, 'unreachableResult'); });
+
+    Object.keys(tree.nodes || {}).forEach(function (id) {
+      var n = tree.nodes[id];
+      if (!isObject(n) || n.type !== 'multi') return;
+      if (n.polarity === undefined) add('warn', 'nodes.' + id, 'noPolarity');
+      else if (n.polarity !== 'direct' && n.polarity !== 'inverse') add('error', 'nodes.' + id + '.polarity', 'badPolarity');
+    });
+
+    /* A bare string displays identically in every language: degraded, not
+     * broken, so the engine tolerates it and this page names it. A tree that
+     * declares ONE language is written in bare strings on purpose, so the
+     * warning only fires from the second declared language on. */
+    if (langs.length > 1) ['nodes', 'results', 'steps', 'links'].forEach(function (top) {
+      var v = tree[top];
+      if (!v) return;
+      (Array.isArray(v) ? v.map(function (x, i) { return [top + '[' + i + ']', x]; })
+                        : Object.keys(v).map(function (k) { return [top + '.' + k, v[k]]; }))
+        .forEach(function (pair) {
+          ['title', 'help', 'summary', 'name', 'label'].forEach(function (field) {
+            var val = isObject(pair[1]) ? pair[1][field] : null;
+            if (typeof val === 'string') add('warn', pair[0] + '.' + field, 'untranslated', { langs: langs.join(', ') });
+          });
+        });
+    });
+
+    if (tree.review && tree.review.date) {
+      var age = (Date.now() - Date.parse(tree.review.date)) / 86400000;
+      if (isNaN(age)) add('warn', 'review.date', 'badReviewDate');
+      else if (age > 365) add('warn', 'review.date', 'oldReview', { days: Math.round(age) });
+    }
+
+    /* Proper to this form: three sequences in a content string close the script
+     * block and kill the page before the engine ever runs. */
+    var killers = [SCRIPT_CLOSE, SCRIPT_OPEN, '<' + '!--'];
+    walkStrings(tree, '', function (str, path) {
+      killers.forEach(function (seq) { if (str.indexOf(seq) >= 0) add('error', path, 'markupInText', { seq: seq }); });
+      if (str.indexOf('<') >= 0 && !killers.some(function (seq) { return str.indexOf(seq) >= 0; })) add('warn', path, 'angleInText');
+    });
+    return issues;
+  }
+
+  /* Checks that only make sense on the SOURCE TEXT, never on the parsed object:
+   * once parsed, an escaped and a literal non-breaking space are the same
+   * character. Scoped to the CONTENT block: the engine writes its own strings
+   * in single quotes on purpose, and it is not the adopter's to edit. Line
+   * numbers are those of the whole file. */
+  function lintContent(text, tree) {
+    var issues = [];
+    /* The engine sets `lang` on its own container, never on the page. A file
+     * whose questions were translated but whose <html lang> was left as it
+     * shipped makes a screen reader read French with an English voice, and
+     * nothing else in the chain notices. */
+    var page = /<html[^>]*\blang\s*=\s*["']([\w-]+)["']/i.exec(text);
+    var wanted = tree && (tree.defaultLang || (Array.isArray(tree.langs) && tree.langs[0]));
+    if (page && wanted && page[1].toLowerCase().split('-')[0] !== String(wanted).toLowerCase().split('-')[0]) {
+      issues.push({ level: 'warn', where: '<html lang>',
+        message: fmt(S.pageLang, { page: page[1], tree: wanted }) });
+    }
+    var block = contentBlock(text);
+    var source = block === null ? text : block;
+    var offset = block === null ? 0 : text.slice(0, text.indexOf(block)).split('\n').length - 1;
+    String(source).split('\n').forEach(function (line, i) {
+      var where = fmt(S.line, { n: i + 1 + offset });
+      if (line.indexOf(NBSP) >= 0) issues.push({ level: 'warn', where: where, message: S.literalNbsp });
+      if (/:\s*'/.test(line) && /’|\w'\w/.test(line)) issues.push({ level: 'warn', where: where, message: S.quoteApostrophe });
+    });
+    return issues;
+  }
+
+  /* ---------------------------------------------------------------- render */
+
+  function table(rows) {
+    var t = el('table');
+    var head = el('tr');
+    [S.level, S.where, S.msg].forEach(function (h) { head.appendChild(el('th', null, h)); });
+    t.appendChild(head);
+    rows.forEach(function (r) {
+      var tr = el('tr');
+      tr.appendChild(el('td', 'lvl lvl-' + r.level, r.level === 'error' ? '✗' : '⚠'));
+      tr.appendChild(el('td', null, r.where));
+      tr.appendChild(el('td', null, r.message));
+      t.appendChild(tr);
+    });
+    return t;
+  }
+  function fail(head, hint, detail) {
+    out.appendChild(el('div', 'verdict v-bad', head));
+    if (hint) out.appendChild(el('p', 'muted', hint));
+    if (detail) out.appendChild(el('pre', null, detail));
+  }
+
+  function analyse(text) {
+    out.textContent = '';
+
+    var mk = markers(text);
+    var eng = loadEngine(text);
+    var loaded = loadContent(text);
+
+    if (loaded.error) { fail(S.syntax, S.syntaxHint, String(loaded.error.message || loaded.error)); return null; }
+    if (loaded.missing) { fail(S.noContent, S.noContentHint); return null; }
+    if (eng.error) { fail(S.engineBroken, null, String(eng.error.message || eng.error)); return null; }
+
+    var tree = loaded.value;
+    var engine = eng.value || null;
+    var report = { tree: tree, engine: engine };
+
+    var structureIssues = [], guardIssues = [], all = [], crashed = [];
+    try { all = paths(tree); } catch (e) { crashed.push(e.message); }
+    try { if (engine) structureIssues = engine.structure(tree); } catch (e) { crashed.push(e.message); }
+    /* The hostname decides part of the verdict, so this page asks for it rather
+     * than guessing. Left empty it means "a domain, unnamed": the declaration
+     * check is skipped, everything else is reported. Passing "" used to read as
+     * "local", which granted the origin its own exemption and declared a
+     * verbatim copy of the origin's questionnaire publishable anywhere. */
+    var host = ((document.getElementById('host') || {}).value || '').trim().toLowerCase();
+    try { if (engine) guardIssues = engine.guard(tree, host); } catch (e) { crashed.push(e.message); }
+    var extra = [];
+    try { extra = extras(tree, all); } catch (e) { crashed.push(e.message); }
+    var srcIssues = lintContent(text, tree);
+
+    var errors = structureIssues.map(function (i) { return { level: 'error', where: i.path, message: i.message }; })
+      .concat(extra.filter(function (i) { return i.level === 'error'; }));
+    var warns = extra.filter(function (i) { return i.level === 'warn'; }).concat(srcIssues);
+
+    var cls, head;
+    if (crashed.length) { cls = 'v-bad'; head = S.crashed + crashed.join(' / '); }
+    else if (errors.length) { cls = 'v-bad'; head = fmt(S.bad, { n: errors.length }); }
+    else if (eng.missing) { cls = 'v-warn'; head = S.engineNone; }
+    else if (guardIssues.length) { cls = 'v-warn'; head = fmt(S.notPublishable, { n: guardIssues.length }); }
+    else if (warns.length) { cls = 'v-warn'; head = fmt(S.okWarn, { n: warns.length }); }
+    else { cls = 'v-ok'; head = S.ok; }
+    var v = el('div', 'verdict ' + cls);
+    v.appendChild(el('span', null, head));
+    v.appendChild(el('small', null, fmt(S.counts, {
+      nodes: Object.keys(tree.nodes || {}).length, results: Object.keys(tree.results || {}).length, paths: all.length
+    })));
+    v.appendChild(el('small', null, host ? fmt(S.verdictFor, { host: host }) : S.verdictForNone));
+    out.appendChild(v);
+
+    /* -------- the file itself */
+    out.appendChild(el('h2', null, S.fileH));
+    out.appendChild(el('p', 'muted', mk.ok ? S.markersOk : fmt(S.markersBad, { list: mk.wrong.join(', ') })));
+    if (eng.missing) out.appendChild(el('p', 'muted', S.engineNone));
+    else if (eng.declared && eng.declared.h === eng.computed) {
+      out.appendChild(el('p', 'muted', fmt(S.engineIntact, { v: eng.declared.v })));
+    } else if (eng.declared) {
+      out.appendChild(el('p', null, fmt(S.engineChanged, { v: eng.declared.v, d: eng.declared.h, c: eng.computed })));
+    }
+    if (engine) {
+      report.hash = engine.fingerprint(tree);
+      out.appendChild(el('p', 'mono', fmt(S.prints, { hash: report.hash })));
+      out.appendChild(el('p', 'muted', S.printsLead));
+    }
+    var meta = [];
+    meta.push(tree.review && tree.review.date ? fmt(S.reviewed, { date: tree.review.date, by: tree.review.by || '?' }) : '! ' + S.noReview);
+    if (tree.jurisdiction) meta.push(fmt(S.jurisdiction, { j: tree.jurisdiction }));
+    if (tree.legalBasis) meta.push(fmt(S.legalBasis, { b: [].concat(tree.legalBasis).join(', ') }));
+    out.appendChild(el('p', 'muted', meta.join(' · ')));
+
+    /* -------- publication, from the engine of this very file */
+    if (!eng.missing) {
+      out.appendChild(el('h2', null, S.publication));
+      out.appendChild(el('p', 'muted', S.publicationLead));
+      if (guardIssues.length) out.appendChild(table(guardIssues.map(function (g) {
+        return { level: 'error', where: g.path, message: g.message };
+      })));
+      else out.appendChild(el('p', 'muted', S.publicationOk));
+    }
+
+    /* -------- coherence */
+    out.appendChild(el('h2', null, S.coherence));
+    out.appendChild(el('p', 'muted', S.coherenceLead));
+    if (errors.length + extra.filter(function (i) { return i.level === 'warn'; }).length) {
+      out.appendChild(table(errors.concat(extra.filter(function (i) { return i.level === 'warn'; }))));
+    } else out.appendChild(el('p', 'muted', S.coherenceOk));
+
+    if (srcIssues.length) {
+      out.appendChild(el('h2', null, S.source));
+      out.appendChild(table(srcIssues));
+    }
+
+    /* -------- paths */
+    out.appendChild(el('h2', null, S.pathsH + ' (' + all.length + ')'));
+    if (all.truncated) out.appendChild(el('p', null, S.truncated));
+    out.appendChild(el('p', 'muted', S.pathsLead));
+    var ul = el('ul', 'paths');
+    all.map(pathKey).sort().forEach(function (k) { ul.appendChild(el('li', null, k)); });
+    out.appendChild(ul);
+
+    /* -------- update */
+    out.appendChild(el('h2', null, S.updateH));
+    out.appendChild(el('p', 'muted', S.updateLead));
+    if (!previous) out.appendChild(el('p', 'muted', S.updateNone));
+    else {
+      var d = routingDiff(previous.tree, tree);
+      out.appendChild(el('p', null, (d.added.length + d.removed.length)
+        ? fmt(S.routingMoved, { a: d.added.length, r: d.removed.length })
+        : fmt(S.routingSame, { n: d.unchanged })));
+      if (previous.hash && report.hash) {
+        out.appendChild(el('p', 'mono', previous.hash === report.hash
+          ? fmt(S.printsSame, { h: report.hash })
+          : fmt(S.printsMoved, { ho: previous.hash, hn: report.hash })));
+      }
+      if (d.added.length + d.removed.length) {
+        var cul = el('ul', 'paths');
+        d.removed.forEach(function (k) { cul.appendChild(el('li', null, '- ' + k)); });
+        d.added.forEach(function (k) { cul.appendChild(el('li', null, '+ ' + k)); });
+        out.appendChild(cul);
+      }
+    }
+    return report;
+  }
+
+  /* ------------------------------------------------------------ plumbing */
+
+  function run(text, remember) {
+    if (remember && last) previous = last;
+    var r = analyse(text);
+    if (r) { r.text = text; last = r; }
+  }
+  function label() {
+    setText('t-title', S.title); setText('t-lead', S.lead); setText('t-drop', S.drop);
+    setText('t-hostLabel', S.hostLabel);
+    setText('t-exec', S.exec); setText('t-foot', S.foot);
+    setText('t-pasteHead', S.pasteHead); setText('pasteGo', S.pasteGo);
+  }
+  function read(f) {
+    var r = new FileReader();
+    r.onload = function () { run(String(r.result), true); };
+    r.readAsText(f, 'utf-8');
+  }
+
+  /* Everything above is pure. Under Node it is all the harness needs; in a
+   * browser the page wires itself below. */
+  var API = {
+    S: S, MARKS: MARKS, NBSP: NBSP, markers: markers,
+    contentBlock: contentBlock, engineBlock: engineBlock, innerScript: innerScript, hashOf: hashOf,
+    loadContent: loadContent, loadEngine: loadEngine,
+    paths: paths, pathKey: pathKey, routingDiff: routingDiff,
+    extras: extras, lintContent: lintContent, analyse: analyse
+  };
+  if (typeof document === 'undefined') return API;
+
+  out = document.getElementById('out');
+  drop = document.getElementById('drop');
+  file = document.getElementById('file');
+  paste = document.getElementById('paste');
+
+  document.getElementById('pasteGo').addEventListener('click', function () {
+    if (paste.value.trim()) run(paste.value, true);
+  });
+  file.addEventListener('change', function () { if (file.files[0]) read(file.files[0]); });
+  drop.addEventListener('click', function (e) { if (e.target !== file) file.click(); });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) read(e.dataTransfer.files[0]); });
+
+  label();
+  return API;
+})();
+</script>
+</body>
+</html>

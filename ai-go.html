@@ -1,0 +1,1724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Which tools may I use for my data?</title>
+</head>
+<body>
+
+<!-- ============================================================================
+     AI_GO-BEGIN
+
+     THIS FILE HAS TWO HALVES.
+     Above AI_GO-ENGINE-BEGIN: yours. Your questions, your title, your colours.
+     An update never touches that half.
+     From AI_GO-ENGINE-BEGIN to AI_GO-ENGINE-END: the engine. Do not edit it.
+     An update replaces that block whole and would overwrite your changes.
+
+     TRY IT: double-click this file. It runs, with a preview banner counting
+     what is left to fill in. No server, no terminal, no npm.
+     CHECK IT: open check.html and drop this file on it.
+     PUBLISH IT, TRANSLATE IT, EMBED IT IN A CMS: README, one page.
+     ========================================================================= -->
+<script>
+/* =============================================================================
+   AI_GO-CONTENT-BEGIN
+   YOUR CONTENT. This is the only region you edit.
+
+   THREE HOUSE RULES FOR EVERY TEXT
+   1. DOUBLE QUOTES. A straight apostrophe inside a single-quoted string breaks
+      the whole file and the page goes blank.
+   2. A non-breaking space is written \u00a0, never typed: typed, it is
+      invisible in an editor and lost on copy-paste.
+   3. NO ANGLE BRACKETS in a text. A tag opened inside a question closes this
+      block and the page dies before the engine starts. check.html refuses it.
+
+   Bold is written with two asterisks on each side. That is the only inline
+   syntax, and no HTML is ever interpreted. A text is a string, a list of
+   paragraphs, or { items: ["one", "two"] } for a bullet list.
+
+   SPDX-License-Identifier: CC0-1.0
+   This content block and the tree format are CC0: copy them without condition.
+   The engine block below has its own licence (LICENSE).
+   ========================================================================== */
+
+var AI_GO_CONTENT = {
+
+  /* id: short and unique, change it when you adapt someone else's tree.
+     version: yours; a session saved under another version is dropped instead
+     of being resumed on the wrong questions.
+     langs: every declared language requires every text. Keep one language and
+     every text stays a plain string. */
+  id: "my-questionnaire",
+  version: "1.0.0",
+  langs: ["en"],
+  defaultLang: "en",
+  start: "q1",
+
+  /* SIGNATURE. The engine REFUSES to display anything while a TO_FILL_IN
+     placeholder remains, or when the hostname of the page is not covered by
+     publisher.domains. Declare your staging host too. A subdomain of a
+     declared domain is covered; another domain is not. */
+  publisher: { name: "TO_FILL_IN", domains: ["TO_FILL_IN"] },
+
+  /* Who reviewed this content, and when (YYYY-MM-DD). Printed under every
+     result with the content fingerprint: it is the link between the sheet your
+     legal service signed and the page that is online. */
+  review: { by: "TO_FILL_IN", date: "TO_FILL_IN" },
+
+  /* Which law this tree encodes, e.g. "CH-VD" or "DE-BY". Read by check.html,
+     never by the questionnaire. */
+  jurisdiction: "TO_FILL_IN",
+  legalBasis: ["TO_FILL_IN"],
+
+  /* Rendered under every result, required in every declared language. Replace
+     the whole text with your own, validated in your institution. */
+  disclaimer: "**Disclaimer:** a decision-support tool, it does not replace legal advice. The user remains responsible for the final assessment. TO_FILL_IN",
+
+  /* ANOTHER INTERFACE LANGUAGE. The engine ships English labels and a French
+     set. For any other language, declare it in `langs`, give every text its
+     variant, and put your own button labels here: they live in YOUR half of
+     the file and survive engine updates. The keys are listed in the README.
+
+  ui: { de: { back: "Zurueck", continue: "Weiter", yes: "Ja", no: "Nein",
+              stepOf: "Schritt {n} von {total}", resultLabel: "Ergebnis",
+              restart: "Fragebogen neu starten", progressLabel: "Fortschritt",
+              solutionLabel: "Empfohlene Loesung", allowedLabel: "Erlaubte Werkzeuge",
+              forbiddenLabel: "Verboten:", newTab: "(oeffnet in einem neuen Tab)" } },
+  */
+
+  /* THE STEPS, the breadcrumb. "Step 2 of 3" is derived from this list: no
+     total frozen in a string. Each question points at one step with `step`;
+     several questions may share one. */
+  steps: [
+    { id: "s1", name: "Type of data" },
+    { id: "s2", name: "Sensitivity" },
+    { id: "s3", name: "Sharing" }
+  ],
+
+  /* THE LINKS, declared once and referenced by id from the results. A person
+     translating never sees a URL, so cannot break one. external: true adds
+     target, rel="noopener noreferrer" and the spoken "opens in a new tab".
+     Accepted schemes: https, http, mailto, tel, and relative paths. */
+  links: {
+    guide:   { label: "Internal guide", external: true, href: "https://example.org/guide" },
+    contact: { label: "Contact the relevant unit", external: true, href: "https://example.org/contact" }
+  },
+
+  nodes: {
+
+    /* SINGLE CHOICE. Each answer carries its own destination: `to` for a
+       question, `result` for an outcome. `label` is omitted on "yes" and "no":
+       the engine then uses its own Yes / No, so adding an interface language
+       costs two strings and not two per question. `detail` is the line shown
+       under the label. */
+    q1: {
+      type: "single",
+      step: "s1",
+      title: "Does your data concern people?",
+      help: "Directly or indirectly.",
+      answers: [
+        { value: "yes", to: "q2", detail: "Yes, this is personal data" },
+        { value: "no",  to: "q3", detail: "No, no individual is concerned" }
+      ]
+    },
+
+    /* CHECKBOXES. The routing is a property of the WHOLE set of boxes, "at
+       least one ticked" against "none", never of one box taken alone. Adding
+       an option changes nothing else.
+
+       `polarity` is a declaration for reviewers, checked but never used by the
+       engine: "direct" when ticking leads to the more cautious outcome, which
+       is the ordinary case, "inverse" when ticking is what takes the reader
+       OUT of the cautious branch. Declare it, so the intent survives
+       translation and review. Someone acting in good faith who "corrects" an
+       inverse question to match the others sends low-risk data into the
+       restrictive branch. */
+    q2: {
+      type: "multi",
+      step: "s2",
+      polarity: "direct",
+      title: "Does this data fall into a sensitive category?",
+      help: "**Tick everything that applies, or continue if nothing applies.**",
+      options: [
+        { value: "health",   label: "Health" },
+        { value: "opinions", label: "Opinions or beliefs" },
+        { value: "legal",    label: "Legal proceedings" }
+      ],
+      /* ifAny / ifAnyResult: at least one box ticked. else / elseResult: none.
+         ifAny and else take a question id, ifAnyResult and elseResult take a
+         result id. */
+      next: { ifAnyResult: "restricted", else: "q3" }
+    },
+
+    q3: {
+      type: "single",
+      step: "s3",
+      title: "Is sharing of this data restricted?",
+      help: "For example: a confidentiality agreement, professional secrecy.",
+      answers: [
+        { value: "yes", result: "restricted", detail: "At least one restriction applies" },
+        { value: "no",  result: "open",       detail: "Sharing is unrestricted" }
+      ]
+    }
+  },
+
+  /* THE RESULTS, the outcomes.
+     level: "success" | "info" | "warning" | "danger", the colour of the card.
+     solution.label: "plain" (default) or "legal" reuses an engine label; any
+       other string is your own text.
+     allowed: link ids, listed under "Permitted tools".
+     forbidden: texts, listed under "Prohibited".
+     alert: one more boxed remark, with its own level. */
+  results: {
+
+    open: {
+      level: "success",
+      title: "No particular restriction",
+      summary: "This questionnaire identifies no constraint on your data.",
+      solution: { label: "plain", text: "Unrestricted use" },
+      allowed: ["guide"]
+    },
+
+    restricted: {
+      level: "warning",
+      title: "Restricted use",
+      summary: "Your data requires particular care.",
+      solution: { label: "legal", text: "Internal solutions only" },
+      allowed: ["guide", "contact"],
+      forbidden: ["No external service without a contract"],
+      alert: {
+        level: "warning",
+        text: "**To check:** this text is an example. Replace it with your own analysis, validated in your institution."
+      }
+    }
+  }
+};
+
+/* =============================================================================
+   AI_GO-CONTENT-END
+   ========================================================================== */
+</script>
+
+<!-- YOUR PAGE. Title, standfirst, who to contact: everything around the
+     questionnaire is yours and survives updates. -->
+<main class="page">
+  <h1>Which tools may I use for my data?</h1>
+  <p class="lead">Three questions to find out what you are allowed to use.
+    Replace this text, and say who to contact in case of doubt.</p>
+
+  <!-- THE CONTAINER. data-ai-go names the variable above. You may change
+       data-lang and data-heading-level (the heading level of the questions, so
+       they fit the outline of your page). Two more attributes exist for
+       special cases: data-history="false", data-storage="none". -->
+  <div id="questionnaire" data-ai-go="AI_GO_CONTENT" data-lang="en" data-heading-level="2"></div>
+</main>
+
+<!-- YOUR COLOURS. Uncomment and replace. This block survives updates. Never
+     edit the engine stylesheet below: its first half carries the accessibility
+     guarantees, and an update overwrites it. The 23 --aigo-* variables are
+     declared at the top of the theme layer in the engine block. -->
+<style>
+  body { margin: 0; background: #fff; color: #1b2126;
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .page { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  .page h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 .5rem; }
+  .page .lead { color: #5a666f; margin: 0 0 2rem; }
+
+  #questionnaire {
+    /* --aigo-accent: #b3001b; */
+    /* --aigo-font: Arial, Helvetica, sans-serif; */
+  }
+</style>
+
+<!-- ============================================================================
+     AI_GO-ENGINE-BEGIN 3.0.1 h:eac1abce
+     THE ENGINE. EDIT NOTHING UNTIL AI_GO-ENGINE-END: an update replaces this
+     block whole. check.html tells you whether it was modified.
+     ========================================================================= -->
+<style>
+/* =============================================================================
+ * The AI_GO stylesheet. Two layers.
+ *   1. BASE LAYER, down to the line that says so. No aesthetic decision, only
+ *      rules whose removal breaks something that does not show.
+ *   2. THEME. Everything goes through the 23 --aigo-* variables declared on
+ *      `.aigo`. To adopt a visual identity, redeclare variables in your own
+ *      <style> above, never here: this block is replaced whole by an update.
+ *
+ * The engine puts the class `aigo` ON the mount container, so you target
+ * `#questionnaire`, never `#questionnaire .aigo`, which matches nothing.
+ * The default theme is NEUTRAL ON PURPOSE: it imitates no institution, so
+ * nobody ships the default believing the branding is done.
+ * ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+ * BASE LAYER. What each rule protects:
+ *   .aigo-sr-only    screen-reader-only text. Redefined as display:none it
+ *                    leaves the accessibility tree and announcements stop.
+ *   44 px targets    minimum target size under pointer:coarse (touch).
+ *   reduced-motion   the animated scroll becomes instant.
+ *   :focus-visible   without it keyboard navigation is invisible.
+ *   .aigo-error      the refusal box stays readable with no theme loaded,
+ *                    which is exactly when it appears.
+ * Plus a LOCAL RESET scoped to `.aigo`, written with :where() so its
+ * specificity is ZERO and the theme always wins without escalating.
+ * -------------------------------------------------------------------------- */
+
+:where(.aigo), :where(.aigo) *, :where(.aigo) *::before, :where(.aigo) *::after { box-sizing: border-box; }
+.aigo { position: relative; }
+:where(.aigo) p { margin: 0 0 .75em; }
+:where(.aigo) p:last-child { margin-bottom: 0; }
+:where(.aigo) ul.aigo-list { list-style: none; margin: 0; padding: 0; }
+:where(.aigo) button { font: inherit; color: inherit; margin: 0; cursor: pointer; border: 0; background: none; }
+:where(.aigo) fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+:where(.aigo) legend { padding: 0; }
+
+/* clip-path, never display:none or visibility:hidden: those two would remove
+ * the text from the accessibility tree, hence from the announcements. */
+.aigo-sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aigo [hidden] { display: none !important; }
+.aigo :focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+@media (pointer: coarse) {
+  .aigo .aigo-btn, .aigo .aigo-option, .aigo .aigo-check { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aigo *, .aigo *::before, .aigo *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.aigo-error { padding: 1rem; border: 2px solid currentColor; }
+
+/* =============================================================================
+ * END OF THE BASE LAYER. EDIT NOTHING ABOVE THIS LINE.
+ * THEME below, 23 variables. Override them from your own <style> above and
+ * every guarantee of the layer above is kept.
+ * ========================================================================== */
+
+.aigo {
+  /* colours */
+  --aigo-fg:            #1b2126;
+  --aigo-fg-muted:      #5a666f;
+  --aigo-bg:            #ffffff;
+  --aigo-bg-subtle:     #f4f6f7;
+  --aigo-border:        #d3dade;
+  --aigo-border-strong: #868f97;   /* 3.29:1 on white: a control boundary must be seen */
+  --aigo-accent:        #2b5f70;
+  --aigo-accent-fg:     #ffffff;
+  --aigo-accent-subtle: #e6eff1;
+
+  /* Semantic colours. Never the only carrier of meaning: every alert also carries
+   * an explicit heading, because colour alone excludes readers. Info reuses the
+   * accent on purpose; the other three are distinct from it. */
+  --aigo-success:        #2f6b45;
+  --aigo-success-subtle: #e6f0e9;
+  --aigo-warning:        #8a6410;
+  --aigo-warning-subtle: #f7efdd;
+  --aigo-danger:         #96382a;
+  --aigo-danger-subtle:  #f7e8e5;
+  --aigo-info:           #2b5f70;
+  --aigo-info-subtle:    #e6eff1;
+
+  /* typography */
+  --aigo-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --aigo-font-size: 1rem;
+  --aigo-line-height: 1.6;
+
+  /* geometry */
+  --aigo-radius: 3px;
+  --aigo-gap: 1rem;
+  --aigo-maxwidth: 42rem;
+
+  font-family: var(--aigo-font);
+  font-size: var(--aigo-font-size);
+  line-height: var(--aigo-line-height);
+  color: var(--aigo-fg);
+  max-width: var(--aigo-maxwidth);
+}
+
+.aigo-main { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.aigo-progress-meta {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--aigo-gap); margin-bottom: .5rem;
+}
+.aigo-eyebrow {
+  font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--aigo-accent);
+}
+.aigo-progress-text { font-size: .875rem; color: var(--aigo-fg-muted); }
+
+.aigo-steps { display: flex; align-items: center; gap: 4px; }
+.aigo-step { flex: 1; height: 4px; border-radius: 2px; background: var(--aigo-border); }
+.aigo-step-done    { background: var(--aigo-accent); }
+.aigo-step-current { background: var(--aigo-accent); box-shadow: 0 0 0 2px var(--aigo-accent-subtle); }
+/* Skipped: visibly different from "to come". It is information about the
+ * reasoning followed, not a display defect. */
+.aigo-step-skipped {
+  background: repeating-linear-gradient(90deg, var(--aigo-border-strong) 0 3px, transparent 3px 6px);
+}
+.aigo-step-name { margin: .5rem 0 0; font-size: .875rem; font-weight: 600; color: var(--aigo-fg-muted); }
+
+.aigo-title {
+  font-size: 1.375rem; line-height: 1.3; font-weight: 600;
+  margin: 0 0 .75rem; text-wrap: balance;
+}
+.aigo-title:focus { outline: none; }
+.aigo-title:focus-visible { outline: 2px solid var(--aigo-accent); outline-offset: 4px; }
+
+.aigo-help {
+  background: var(--aigo-bg-subtle);
+  border-left: 3px solid var(--aigo-border-strong);
+  padding: .75rem 1rem; margin-bottom: 1.25rem; font-size: .9375rem;
+}
+.aigo-help .aigo-list { margin-top: .25rem; }
+.aigo-help .aigo-list li { padding-left: 1rem; position: relative; }
+.aigo-help .aigo-list li::before {
+  content: ""; position: absolute; left: 0; top: .7em;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--aigo-border-strong);
+}
+
+.aigo-options, .aigo-fieldset { display: flex; flex-direction: column; gap: .5rem; }
+.aigo-option, .aigo-check {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .875rem 1rem;
+  border: 1px solid var(--aigo-border); border-radius: var(--aigo-radius);
+  background: var(--aigo-bg); cursor: pointer;
+}
+.aigo-option:hover, .aigo-check:hover { border-color: var(--aigo-border-strong); background: var(--aigo-bg-subtle); }
+.aigo-option:has(input:checked), .aigo-check:has(input:checked) {
+  border-color: var(--aigo-accent); background: var(--aigo-accent-subtle);
+}
+/* The focus lives on the input; it is lifted visually onto the whole card. */
+.aigo-option:has(:focus-visible), .aigo-check:has(:focus-visible) {
+  outline: 2px solid var(--aigo-accent); outline-offset: 2px;
+}
+.aigo-option input, .aigo-check input { margin: .2rem 0 0; flex: none; accent-color: var(--aigo-accent); }
+.aigo-option-text { display: flex; flex-direction: column; gap: .125rem; }
+.aigo-option-label { font-weight: 600; }
+.aigo-option-detail { font-size: .9375rem; color: var(--aigo-fg-muted); }
+
+.aigo-buttons { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+.aigo-btn { padding: .625rem 1.25rem; border-radius: var(--aigo-radius); font-weight: 600; border: 1px solid transparent; }
+.aigo-btn-primary { background: var(--aigo-accent); color: var(--aigo-accent-fg); }
+/* currentColor here is the button's own white, an invisible ring on a light
+   page. The ring sits outside the button, so it takes the accent instead. */
+.aigo-btn-primary:focus-visible { outline-color: var(--aigo-accent); }
+.aigo-btn-primary:hover { filter: brightness(1.1); }
+.aigo-btn-ghost { border-color: var(--aigo-border-strong); color: var(--aigo-fg); }
+.aigo-btn-ghost:hover { background: var(--aigo-bg-subtle); }
+
+.aigo-result { display: flex; flex-direction: column; gap: 1.25rem; }
+.aigo-alert { padding: 1rem 1.125rem; border-radius: var(--aigo-radius); border-left: 4px solid; font-size: .9375rem; }
+.aigo-alert-success { background: var(--aigo-success-subtle); border-color: var(--aigo-success); }
+.aigo-alert-warning { background: var(--aigo-warning-subtle); border-color: var(--aigo-warning); }
+.aigo-alert-danger  { background: var(--aigo-danger-subtle);  border-color: var(--aigo-danger); }
+.aigo-alert-info    { background: var(--aigo-info-subtle);    border-color: var(--aigo-info); }
+.aigo-result-title { display: block; font-size: 1.0625rem; margin-bottom: .375rem; }
+.aigo-result-title:focus { outline: none; }
+.aigo-result-title:focus-visible { outline: 2px solid var(--aigo-accent); outline-offset: 4px; }
+
+.aigo-solution { border: 1px solid var(--aigo-border); border-radius: var(--aigo-radius); padding: 1rem 1.125rem; }
+.aigo-solution-label {
+  font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--aigo-fg-muted); margin-bottom: .25rem;
+}
+.aigo-solution-text { font-size: 1.125rem; font-weight: 600; }
+
+.aigo-block-title {
+  font-size: .8125rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--aigo-fg-muted); margin-bottom: .5rem;
+}
+.aigo-block + .aigo-block { margin-top: var(--aigo-gap); }
+.aigo-block .aigo-list { display: flex; flex-direction: column; gap: .375rem; }
+.aigo-block .aigo-list li { padding-left: 1rem; position: relative; }
+.aigo-block .aigo-list li::before {
+  content: ""; position: absolute; left: 0; top: .7em;
+  width: 5px; height: 1px; background: var(--aigo-border-strong);
+}
+
+.aigo-link { color: var(--aigo-accent); }
+.aigo-foreign-host { color: var(--aigo-fg-muted); font-size: .8125rem; }
+.aigo-disclaimer { font-size: .875rem; }
+
+/* Footer: publisher, review date, attribution, content fingerprint. */
+.aigo-review {
+  font-size: .8125rem; color: var(--aigo-fg-muted);
+  border-top: 1px solid var(--aigo-border); padding-top: .75rem; margin: 0;
+}
+.aigo-review p { margin: 0 0 .25rem; }
+.aigo-review-expired { color: var(--aigo-warning); font-weight: 600; }
+.aigo-attribution { font-style: italic; }
+.aigo-content-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; opacity: .8; }
+
+/* The refusal box is what the public sees when content is not publishable; the
+ * banner is what an editor sees on a local preview. */
+.aigo-error {
+  border: 2px solid var(--aigo-danger); background: var(--aigo-danger-subtle);
+  padding: 1rem 1.25rem; border-radius: var(--aigo-radius);
+}
+.aigo-error strong { display: block; font-size: 1.05rem; margin-bottom: .35rem; }
+.aigo-error ul { margin: .5rem 0 0; padding-left: 1.25rem; font-size: .9rem; }
+.aigo-error code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+
+.aigo-banner {
+  margin: 0 0 1rem; padding: .5rem .875rem;
+  font-size: .8125rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--aigo-warning-subtle); color: var(--aigo-warning);
+  border-left: 4px solid var(--aigo-warning);
+}
+
+/* Print: a reader who obtains a recommendation attaches it to a data
+ * management plan. The link URL is written after the link text. */
+@media print {
+  .aigo-buttons, .aigo-steps, .aigo-progress-meta, .aigo-banner { display: none; }
+  .aigo { max-width: none; color: #000; }
+  .aigo-alert { border: 1px solid #000; background: none; }
+  .aigo-link::after { content: " (" attr(href) ")"; font-size: .75em; word-break: break-all; }
+}
+</style>
+<script>
+/* =============================================================================
+ * AI_GO: a guided decision-tree engine, in the same file as its content.
+ *
+ * SIX PRINCIPLES, which explain most of what follows.
+ * 1. Everything is scoped to the mount container: no global lookup, no global
+ *    id, two instances coexist on one page.
+ * 2. No value ever reaches innerHTML: text from a CMS cannot inject markup.
+ * 3. Back is a stack operation, never a hard-coded target.
+ * 4. Answers live in state, not in the DOM, so going back restores them.
+ * 5. Structure is declared, never inferred from an identifier.
+ * 6. Fail closed, and fail VISIBLY: broken, unsigned or placeholder-bearing
+ *    content is refused in the container, because this audience does not read
+ *    the console.
+ *
+ * THIS BLOCK RENDERS AND REFUSES. It carries only the checks whose absence
+ * would let a broken tree reach a reader: every target resolves, every link is
+ * a safe scheme, every declared language is present, the content is signed and
+ * free of placeholders. Path enumeration, oracle conformance, reachability,
+ * cycles, polarity values, review age and source-text hygiene are in
+ * check.html, which never ships to a visitor.
+ *
+ * PUBLIC API on the single global AI_GO: mount(root, tree, opts) returns the
+ * instance or null (opts: lang, storageKey, history, resume, headingLevel,
+ * mode "strict" | "preview"); mountAll(scope), idempotent, self-run once on
+ * load, reads data-lang, data-history, data-storage, data-mode and
+ * data-heading-level; structure(tree) and guard(tree, host) return
+ * [{ path, message }]; fingerprint(tree) and hash(text) return 8 hex; plus
+ * version, UI and POLICY. The first three never throw on malformed input, they
+ * report. The instance exposes answer, back, restart, save, getState, setLang,
+ * destroy, and the read-only node, result, lang, mode, issues.
+ *
+ * INTERFACE STRING KEYS, for a tree that adds a language in its own `ui`:
+ *   back continue restart stepOf resultLabel yes no colon solutionLabel
+ *   solutionLabelLegal allowedLabel forbiddenLabel newTab progressLabel chooseOne
+ *   reviewedOn loadError notLoaded staleError notPublished notPublishedLead
+ *   previewBanner previewOk contentId expiredReview attribution
+ *
+ * Licence: BSD-3-Clause, see LICENSE.
+ * ========================================================================== */
+
+var AI_GO = (function () {
+  'use strict';
+
+  var VERSION = '3.0.1';
+
+  /* ===========================================================================
+   * 1. INTERFACE STRINGS
+   *
+   * Everything the engine says about itself. CONTENT lives in the tree; this is
+   * the chrome. English is the base. `fr` is a label set shipped because the
+   * reference content of this repository is bilingual; it overrides the base,
+   * key by key. Any other language comes from the tree, through
+   * tree.ui = { de: { back: "Zurueck" } }, merged last: an interface language
+   * is CONTENT and survives engine updates.
+   *
+   * `colon`: punctuation is a property of the language. French requires a
+   * non-breaking space before ":", English forbids it. Non-breaking spaces are
+   * always written \u00a0, never as a literal character.
+   *
+   * `msg`: the short sentences of the refusal box, in English only. They are
+   * read by the person who must fix the file, so they name the fix, not the
+   * theory. The long explanations are in the README.
+   * ======================================================================== */
+
+  var UI = {
+    en: {
+      back: 'Back', continue: 'Continue', restart: 'Restart the questionnaire',
+      stepOf: 'Step {n} of {total}', resultLabel: 'Result',
+      yes: 'Yes', no: 'No', colon: ': ',
+      solutionLabel: 'Recommended solution',
+      solutionLabelLegal: 'Recommended solution (legally compliant)',
+      allowedLabel: 'Permitted tools', forbiddenLabel: 'Prohibited:',
+      newTab: '(opens in a new tab)', progressLabel: 'Progress',
+      reviewedOn: 'Content reviewed on {date} by {by}',
+      loadError: 'The questionnaire could not be loaded.',
+      notLoaded: 'The content "{name}" did not load. Syntax error in your content block (comma, apostrophe)?',
+      staleError: 'This step no longer exists in the current version of the questionnaire. Starting over.',
+      chooseOne: 'Please choose an answer to continue.',
+      notPublished: 'Questionnaire not published',
+      notPublishedLead: 'The content does not meet the publication conditions. Points to fix:',
+      previewBanner: 'Preview: not publishable ({n} item(s) to complete)',
+      previewOk: 'Local preview',
+      contentId: 'content {hash} · engine {version}',
+      expiredReview: 'This content was last reviewed more than {days} days ago.',
+      attribution: 'Structure adapted from the questionnaire of {source}. {source} has not reviewed this adaptation and is not answerable for it.',
+      msg: {
+        treeUnreadable: 'Tree missing or unreadable.',
+        noNodes: 'No questions (`nodes`).',
+        noStart: 'No start node (`start`).',
+        unknownStart: 'The start node "{id}" does not exist.',
+        nodeUnreadable: 'Empty or unreadable entry.',
+        noTitle: 'Missing title.',
+        missingTranslation: 'Missing translation in "{lang}".',
+        unknownNode: 'Unknown node "{id}".',
+        unknownResult: 'Unknown result "{id}".',
+        noTarget: 'Neither `to` nor `result`: this answer leads nowhere.',
+        multiNoOptions: 'Checkbox question with no options.',
+        multiNoNext: 'Checkbox question with no `next` rule.',
+        singleTooFewAnswers: 'Single-choice question with fewer than two answers.',
+        answerNoValue: 'Answer without `value`.',
+        duplicateValue: 'Two answers share the value "{value}": the second can never be reached.',
+        optionNoValue: 'Checkbox without `value`.',
+        resultUnreadable: 'Empty or unreadable result.',
+        unknownLink: 'Unknown link "{id}".',
+        linkNoHref: 'Link without `href`.',
+        badScheme: 'URL scheme not allowed: {href}. Only http(s), mailto, tel and relative links are accepted.',
+        publisherName: 'Who publishes? Fill in `publisher.name`.',
+        publisherDomains: 'On which domain? Fill in `publisher.domains`.',
+        hostNotDeclared: 'The domain "{host}" is not declared in `publisher.domains`.',
+        reviewBy: 'Who reviewed this content? Fill in `review.by`.',
+        reviewDate: 'When? Fill in `review.date`.',
+        badReviewDate: 'Unreadable review date. Expected format: YYYY-MM-DD.',
+        disclaimerMissing: 'Liability disclaimer missing in this language.',
+        placeholder: 'Placeholder "{sentinel}" still present: replace it.',
+        reservedId: 'This identifier is reserved to {origin}. Use your own.',
+        reservedTerm: 'This text still names {origin}. Rewrite it in your own terms.',
+        reservedLink: 'This link still points to {origin}. Replace it with your own.',
+        renderFailed: 'Check impossible: {error}'
+      }
+    },
+    fr: {
+      back: 'Retour', continue: 'Continuer', restart: 'Recommencer le questionnaire',
+      stepOf: 'Étape {n} sur {total}', resultLabel: 'Résultat',
+      yes: 'Oui', no: 'Non', colon: '\u00a0: ',
+      solutionLabel: 'Solution recommandée',
+      solutionLabelLegal: 'Solution recommandée (conforme au droit)',
+      allowedLabel: 'Outils autorisés', forbiddenLabel: 'Interdictions\u00a0:',
+      newTab: '(ouvre dans un nouvel onglet)', progressLabel: 'Progression',
+      reviewedOn: 'Contenu revu le {date} par {by}',
+      loadError: 'Le questionnaire n’a pas pu être chargé.',
+      notLoaded: 'Le contenu « {name} » ne s’est pas chargé. Erreur de syntaxe dans votre bloc de contenu\u00a0?',
+      staleError: 'Cette étape n’existe plus dans la version actuelle du questionnaire. Reprise au début.',
+      chooseOne: 'Choisissez une réponse pour continuer.',
+      notPublished: 'Questionnaire non publié',
+      notPublishedLead: 'Le contenu ne remplit pas les conditions de publication. Points à corriger\u00a0:',
+      previewBanner: 'Aperçu\u00a0: non publiable ({n} point(s) à compléter)',
+      previewOk: 'Aperçu local',
+      contentId: 'contenu {hash} · moteur {version}',
+      expiredReview: 'La relecture de ce contenu a plus de {days} jours.',
+      attribution: 'Structure adaptée du questionnaire de {source}. {source} n’a pas relu cette adaptation et n’en répond pas.'
+    }
+  };
+
+  /* ===========================================================================
+   * 2. SMALL HELPERS
+   * ======================================================================== */
+
+  /* {name} placeholders. A replacement callback, not a replacement string: a
+   * value containing "$&" must be inserted verbatim. */
+  function fmt(str, vars) {
+    return String(str).replace(/\{(\w+)\}/g, function (m, key) {
+      return vars && vars[key] !== undefined ? String(vars[key]) : m;
+    });
+  }
+  /* The refusal sentences, English only: they are read by the editor of the
+   * file, never by a visitor, and a visitor never sees a refusal on a page
+   * that was validated before publication. */
+  function phrase(key, vars) { return fmt(UI.en.msg[key] || key, vars); }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  /* Object.assign is ES2015; this file is ES5 on purpose. */
+  function assign(target, src) {
+    if (src) Object.keys(src).forEach(function (k) { target[k] = src[k]; });
+    return target;
+  }
+  function isObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+
+  /* Identifiers coming from a tree or a stored session are looked up with
+   * hasOwnProperty, never with `obj[key]` alone: "constructor" or "toString"
+   * would otherwise resolve to a function inherited from Object.prototype and
+   * pass for a node, a result or a link. */
+  function own(obj, key) { return isObject(obj) && Object.prototype.hasOwnProperty.call(obj, key); }
+
+  function fallbackLangs(tree) {
+    return [tree.defaultLang].concat(arr(tree.langs)).filter(Boolean);
+  }
+  /* Picks the language variant of a value. Strings and arrays are returned as
+   * they are: a one-language tree writes plain strings everywhere, and the
+   * bilingual reference content writes { fr: ..., en: ... }. Both mount on
+   * this engine, unchanged. */
+  function pickLang(value, lang, fallbacks) {
+    if (value == null) return null;
+    if (typeof value === 'string' || Array.isArray(value)) return value;
+    if (value[lang] !== undefined) return value[lang];
+    for (var i = 0; i < fallbacks.length; i++) {
+      if (value[fallbacks[i]] !== undefined) return value[fallbacks[i]];
+    }
+    return null;
+  }
+
+  /* Two asterisks around a run of text make it bold. That is the only inline
+   * syntax, deliberately: every additional syntax is one a content editor can
+   * break. Text nodes only, never markup. */
+  function inlineInto(parent, str) {
+    if (str == null) return;
+    var parts = String(str).split('**');
+    for (var i = 0; i < parts.length; i++) {
+      if (!parts[i]) continue;
+      if (i % 2) parent.appendChild(el('strong', null, parts[i]));
+      else parent.appendChild(document.createTextNode(parts[i]));
+    }
+  }
+  /* Rich text: "string" | ["paragraph", ...] | { items: [...] }. Nothing else. */
+  function renderText(host, value, lang, fallbacks) {
+    var v = pickLang(value, lang, fallbacks);
+    if (v == null || v === '') return;
+    var blocks = Array.isArray(v) ? v : [v];
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b && b.items) {
+        var ul = el('ul', 'aigo-list');
+        arr(b.items).forEach(function (item) {
+          var li = el('li');
+          inlineInto(li, item);
+          ul.appendChild(li);
+        });
+        host.appendChild(ul);
+      } else if (typeof b === 'string') {
+        var p = el('p');
+        inlineInto(p, b);
+        host.appendChild(p);
+      }
+    }
+  }
+
+  /* Allowed schemes for a tree link. Deliberately restrictive: a tree is
+   * editorial data, not an execution vector. Protocol-relative URLs are
+   * rejected too: they inherit the page scheme and escape the allow-list.
+   * Browsers resolve "/\host" like "//host", and drop tab, LF and CR from a URL
+   * before parsing it, so the check runs on the string the browser would see. */
+  function safeHref(href) {
+    if (typeof href !== 'string') return null;
+    var v = href.replace(/[\t\n\r]/g, '').trim();
+    if (!v) return null;
+    if (/^\/[\/\\]/.test(v)) return null;
+    /* Whatever stands before a colon is a scheme: allow three, refuse the rest.
+     * A string with no scheme is a relative path, and "help.html" is as
+     * legitimate as "/help". */
+    var scheme = /^([a-z][a-z0-9+.\-]*):/i.exec(v);
+    if (scheme) return /^(https?|mailto|tel)$/i.test(scheme[1]) ? v : null;
+    return v;
+  }
+  /* A relative href has no host. The base below exists only so that the URL
+   * parser accepts one; seeing it come back means the href was relative, and
+   * the answer is "no host", not the name of the base. */
+  var RELATIVE_BASE = 'https://relative.invalid/';
+  function hostOf(href) {
+    try {
+      var h = new URL(String(href), RELATIVE_BASE).hostname.toLowerCase();
+      return h === 'relative.invalid' ? '' : h;
+    } catch (e) { return ''; }
+  }
+  /* Dot boundary: "evilhef.example" does not end with domain "hef.example". */
+  function endsWithDomain(host, domain) {
+    host = String(host || '').toLowerCase(); domain = String(domain || '').toLowerCase();
+    return host === domain || (host.length > domain.length && host.slice(-domain.length - 1) === '.' + domain);
+  }
+  function reducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  /* An empty hostname is a file:// page opened by double-click. */
+  function isLocalHost(hostname) {
+    return hostname === '' || /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(hostname);
+  }
+  /* Calls fn(string, path) for every string inside a value. Paths look like
+   * results.open.summary.fr or publisher.domains[0]. */
+  function walkStrings(value, path, fn, depth) {
+    var d = depth || 0;
+    if (d > 32) return;   /* deeper than that is malformed, and a cycle is endless */
+    if (typeof value === 'string') fn(value, path);
+    else if (Array.isArray(value)) value.forEach(function (x, i) { walkStrings(x, path + '[' + i + ']', fn, d + 1); });
+    else if (value && typeof value === 'object') Object.keys(value).forEach(function (k) {
+      walkStrings(value[k], path ? path + '.' + k : k, fn, d + 1);
+    });
+  }
+
+  /* ===========================================================================
+   * 3. STRUCTURAL CHECK
+   *
+   * What must never reach a reader:
+   *   a target that resolves nowhere  a Continue button that does nothing, in
+   *                                   production, until somebody complains;
+   *   a missing translation           one language served to the reader of
+   *                                   another, silently, through the fallback;
+   *   an unsafe link scheme           a script scheme runs on click.
+   * All mechanical, all cheap, all refuse the page at mount time.
+   *
+   * Everything a validator would ALSO say (unreachable node, cycle, dead end,
+   * oracle conformance, polarity value, review age, source-text hygiene) is in
+   * check.html: it needs the path enumeration, it is read once before
+   * publication, and it has no business in a visitor's browser.
+   *
+   * Never throws. A check that crashes on `langs: "fr"` checks nothing.
+   * ======================================================================== */
+
+  function structure(tree) {
+    var out = [];
+    function bad(path, key, vars) { out.push({ path: path, message: phrase(key, vars) }); }
+    if (!isObject(tree)) { bad('tree', 'treeUnreadable'); return out; }
+
+    var langs = arr(tree.langs);
+    var nodes = isObject(tree.nodes) ? tree.nodes : {};
+    var results = isObject(tree.results) ? tree.results : {};
+    var links = isObject(tree.links) ? tree.links : {};
+
+    /* A bare string is tolerated here and reported by check.html: it displays
+     * identically in every language, which is degraded but not broken. */
+    function texts(path, value) {
+      if (value == null || typeof value === 'string' || Array.isArray(value)) return;
+      langs.forEach(function (l) { if (value[l] === undefined) bad(path, 'missingTranslation', { lang: l }); });
+    }
+    function need(path, value) { if (value == null) bad(path, 'noTitle'); else texts(path, value); }
+    function target(path, to, result) {
+      if (result) { if (!own(results, result)) bad(path, 'unknownResult', { id: result }); }
+      else if (to) { if (!own(nodes, to)) bad(path, 'unknownNode', { id: to }); }
+      else bad(path, 'noTarget');
+    }
+
+    if (!Object.keys(nodes).length) bad('nodes', 'noNodes');
+    if (!tree.start) bad('start', 'noStart');
+    else if (!own(nodes, tree.start)) bad('start', 'unknownStart', { id: tree.start });
+
+    Object.keys(nodes).forEach(function (id) {
+      var n = nodes[id], w = 'nodes.' + id;
+      if (!isObject(n)) { bad(w, 'nodeUnreadable'); return; }
+      need(w + '.title', n.title);
+      texts(w + '.help', n.help);
+      if (n.type === 'multi') {
+        var options = arr(n.options);
+        if (!options.length) bad(w, 'multiNoOptions');
+        options.forEach(function (o, i) {
+          var ow = w + '.options[' + i + ']';
+          if (!isObject(o)) { bad(ow, 'nodeUnreadable'); return; }
+          if (!o.value) bad(ow, 'optionNoValue');
+          need(ow + '.label', o.label);
+        });
+        if (!isObject(n.next)) { bad(w, 'multiNoNext'); return; }
+        target(w + '.next.ifAny', n.next.ifAny, n.next.ifAnyResult);
+        target(w + '.next.else', n.next.else, n.next.elseResult);
+      } else {
+        var answers = arr(n.answers);
+        if (answers.length < 2) bad(w, 'singleTooFewAnswers');
+        /* Routing keys on the value. Two answers sharing one value make the
+         * second unreachable: clicking it lands on the first one's target. */
+        var seen = Object.create(null);
+        answers.forEach(function (a, i) {
+          var v = isObject(a) ? a.value : null;
+          if (!v) return;
+          if (seen[v] === true) bad(w + '.answers[' + i + ']', 'duplicateValue', { value: String(v) });
+          seen[v] = true;
+        });
+        answers.forEach(function (a, i) {
+          var aw = w + '.answers[' + i + ']';
+          if (!isObject(a)) { bad(aw, 'nodeUnreadable'); return; }
+          if (!a.value) bad(aw, 'answerNoValue');
+          texts(aw + '.label', a.label);
+          texts(aw + '.detail', a.detail);
+          target(aw, a.to, a.result);
+        });
+      }
+    });
+
+    Object.keys(results).forEach(function (id) {
+      var r = results[id], w = 'results.' + id;
+      if (!isObject(r)) { bad(w, 'resultUnreadable'); return; }
+      need(w + '.title', r.title);
+      texts(w + '.summary', r.summary);
+      if (isObject(r.solution)) texts(w + '.solution.text', r.solution.text);
+      if (isObject(r.alert)) texts(w + '.alert.text', r.alert.text);
+      arr(r.allowed).forEach(function (lid) { if (!own(links, lid)) bad(w + '.allowed', 'unknownLink', { id: lid }); });
+      arr(r.forbidden).forEach(function (t, i) { texts(w + '.forbidden[' + i + ']', t); });
+    });
+
+    Object.keys(links).forEach(function (id) {
+      var link = isObject(links[id]) ? links[id] : {};
+      need('links.' + id + '.label', link.label);
+      if (!link.href) bad('links.' + id, 'linkNoHref');
+      else if (!safeHref(link.href)) bad('links.' + id, 'badScheme', { href: String(link.href).slice(0, 40) });
+    });
+
+    arr(tree.steps).forEach(function (s, i) {
+      if (isObject(s)) need('steps[' + i + '].name', s.name);
+      else bad('steps[' + i + ']', 'nodeUnreadable');
+    });
+
+    return out;
+  }
+
+  /* ===========================================================================
+   * 4. PUBLICATION GUARD
+   *
+   * A tree is not displayed until it is signed (publisher, review), dated,
+   * carries its disclaimer in every declared language, and is free of
+   * placeholders. On refusal the container shows the list of points, and
+   * nothing else.
+   *
+   * POLICY is the ORIGIN POLICY: the institution that first published this
+   * engine keeps its own tree as a labelled example, and asks that verbatim
+   * copies on other domains replace its name, links and identifier. It is a
+   * courtesy lock against accidental copy, not a security boundary: it is
+   * data, and it is mutable. What it cannot catch: an institution retyping the
+   * original content under its own name. The licence (non-endorsement clause)
+   * and that institution's own responsibility apply then.
+   *
+   * A change of domain or name on the origin side is an edit of this block.
+   * This is the ONLY implementation of the verdict in the repository:
+   * check.html does not carry a second one, it runs this one, taken from the
+   * very file it was given.
+   * ======================================================================== */
+
+  var POLICY = {
+    homeName: 'University of Lausanne (UNIL)',  // named in refusal messages
+    homeDomain: 'unil.ch',                      // where the origin tree may run as is
+    homeIds: ['aigo-unil'],                     // tree ids reserved to the origin (prefix match)
+    reservedHosts: ['unil.ch'],                 // links to these hosts are refused elsewhere
+    reservedPrefixes: ['padlet.com/ai_research'],
+    /* All case-insensitive: "unil" and "ai_go" name the origin just as plainly
+     * as "UNIL" and "AI_GO", and a careless copy lowercases as easily as not. */
+    reservedTerms: [/\bAI_GO\b/i, /\bDCSR\b/i, /Universit[ée] de Lausanne/i, /Universit(ät|y of) Lausanne/i,
+                    /Universit[àa] di Losanna/i, /\bUNIL\b/i, /Cellule strat[ée]gique IA/i],
+    sentinels: ['TO_FILL_IN', 'TO COMPLETE', 'PLACEHOLDER', 'example.invalid'],
+    reviewMaxDays: 548                          // 18 months: beyond, a non-blocking banner under every result
+  };
+
+  /* Returns [{ path, message }]; empty means publishable on `hostname`. An
+   * empty or local hostname skips the domain checks only (local preview). */
+  function guard(tree, hostname) {
+    var out = [];
+    function bad(path, key, vars) { out.push({ path: path, message: phrase(key, vars) }); }
+    if (!isObject(tree)) { bad('tree', 'treeUnreadable'); return out; }
+    hostname = String(hostname || '').toLowerCase();
+    /* Two different questions. `local` relaxes the domain declaration, since a
+     * preview has no domain to declare. `named` is what the origin exemption
+     * needs: an empty hostname is not a local machine, it is an unknown one,
+     * and it is what an about:srcdoc frame and a validator both report. */
+    var local = isLocalHost(hostname);
+    var named = hostname !== '' && isLocalHost(hostname);
+
+    var pub = isObject(tree.publisher) ? tree.publisher : {};
+    var domains = arr(pub.domains);
+    /* A signature has to be readable text. `publisher.name: true` satisfied a
+     * truthiness test and printed a footer reading "true, reviewed by true". */
+    function isText(v) { return typeof v === 'string' && v.trim() !== ''; }
+    if (!isText(pub.name)) bad('publisher.name', 'publisherName');
+    if (!domains.length) bad('publisher.domains', 'publisherDomains');
+    else if (!local && !domains.some(function (d) { return endsWithDomain(hostname, d); })) {
+      bad('publisher.domains', 'hostNotDeclared', { host: hostname });
+    }
+
+    var review = isObject(tree.review) ? tree.review : {};
+    var hasSentinel = function (str) { return POLICY.sentinels.some(function (x) { return String(str).indexOf(x) >= 0; }); };
+    if (!isText(review.by)) bad('review.by', 'reviewBy');
+    if (!review.date) bad('review.date', 'reviewDate');
+    /* A date still holding a placeholder is listed once, below, as a placeholder. */
+    else if (!isValidDate(review.date) && !hasSentinel(review.date)) bad('review.date', 'badReviewDate');
+
+    if (!isText(tree.disclaimer) && !isObject(tree.disclaimer)) bad('disclaimer', 'disclaimerMissing');
+    else arr(tree.langs).forEach(function (l) {
+      if (isObject(tree.disclaimer) && !isText(tree.disclaimer[l])) bad('disclaimer.' + l, 'disclaimerMissing');
+    });
+
+    /* The origin exemption needs three things: the home domain declared, a home
+     * id, AND a page actually served from that domain (or a local preview). A
+     * verbatim copy elsewhere thus receives the full list of points to replace,
+     * not just "wrong domain". */
+    var isHome = domains.indexOf(POLICY.homeDomain) >= 0 && POLICY.homeIds.indexOf(tree.id) >= 0 &&
+                 (named || endsWithDomain(hostname, POLICY.homeDomain));
+    var idIsHome = POLICY.homeIds.some(function (id) { return String(tree.id || '').indexOf(id) === 0; });
+    if (!isHome && idIsHome) bad('id', 'reservedId', { origin: POLICY.homeName });
+
+    /* Placeholders: EVERYWHERE, signature included, since that is where a
+     * starter file puts them. Reserved terms: content only, because the name of
+     * the origin institution may legitimately appear in a signature. */
+    walkStrings(tree, '', function (str, path) {
+      POLICY.sentinels.forEach(function (s) { if (str.indexOf(s) >= 0) bad(path, 'placeholder', { sentinel: s }); });
+    });
+    if (!isHome) {
+      /* Everything the reader sees, not only the questions: the page title and
+       * the disclaimer name the origin just as loudly. `publisher` and `review`
+       * are left out on purpose, since a signature may legitimately cite the
+       * origin, and so is `derivedFrom`, whose whole job is to name it. */
+      Object.keys(tree).forEach(function (top) {
+        if (top === 'publisher' || top === 'review' || top === 'derivedFrom') return;
+        walkStrings(tree[top], top, function (str, path) {
+          POLICY.reservedTerms.forEach(function (re) { if (re.test(str)) bad(path, 'reservedTerm', { origin: POLICY.homeName }); });
+        });
+      });
+      Object.keys(isObject(tree.links) ? tree.links : {}).forEach(function (id) {
+        var href = tree.links[id] && tree.links[id].href;
+        if (!href) return;
+        var host = hostOf(href);
+        var bare = String(href).toLowerCase().replace(/^https?:\/\//, '');
+        if (POLICY.reservedHosts.some(function (d) { return endsWithDomain(host, d); }) ||
+            POLICY.reservedPrefixes.some(function (p) { return bare.indexOf(p) === 0; })) {
+          bad('links.' + id + '.href', 'reservedLink', { origin: POLICY.homeName });
+        }
+      });
+    }
+    return out;
+  }
+
+  /* Date.parse accepts "2026-02-31" and rolls it over to 3 March. A review date
+   * that does not exist is a typo, and a typo in a review date is exactly the
+   * kind of thing a reader would trust. Only an exact round trip passes. */
+  function isValidDate(value) {
+    if (typeof value !== 'string') return false;
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (m) {
+      var d = new Date(value.trim() + 'T00:00:00Z');
+      return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value.trim();
+    }
+    return !isNaN(Date.parse(value));
+  }
+
+  function reviewAgeDays(tree) {
+    var t = tree && tree.review && Date.parse(tree.review.date);
+    return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+  }
+
+  /* ===========================================================================
+   * 5. CONTENT FINGERPRINT
+   *
+   * djb2, 32 bits, over a JSON projection of start, nodes, results and links.
+   * Not normalised: keys are hashed in the order the file declares them, so
+   * reordering an object moves the fingerprint even though nothing was said
+   * differently. That is the safe direction to be wrong in. It answers one question in front of a data protection officer:
+   * "are the questions and the routing still the ones we signed?". Its scope is
+   * frozen: changing it would move every fingerprint ever recorded on a signed
+   * sheet. It is printed under every result and on the container, so it can be
+   * read on the page that is actually served, not only on a file someone
+   * carries to the validator. The signature fields it does NOT cover
+   * (publisher, review, disclaimer) are printed in clear right beside it.
+   * ======================================================================== */
+
+  function hash(src) {
+    var s = String(src), h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+  }
+  /* Never throws: check.html calls it on whatever file was dropped on it. */
+  function fingerprint(tree) {
+    var t = isObject(tree) ? tree : {};
+    try { return hash(JSON.stringify({ s: t.start, n: t.nodes, r: t.results, l: t.links })); }
+    catch (e) { return '????????'; }   /* self-referential: nothing to sign */
+  }
+
+  /* ===========================================================================
+   * 6. VIEWS
+   *
+   * Rendering functions: they read the instance state and append DOM nodes to
+   * `host`, and they never look outside the instance root. Not pure: the
+   * handlers they attach record the answer and ask the instance to save, which
+   * is the whole point of a question. Each returns the element that should
+   * receive focus after a navigation.
+   * ======================================================================== */
+
+  var groupSeq = 0;   // radio group names must be unique per rendering, even across instances
+
+  /* English base, overridden by the shipped label set for the language, then by
+   * the tree's own `ui`. A language the engine does not know is served entirely
+   * by the tree. */
+  function makeStrings(lang, tree) {
+    var s = {};
+    Object.keys(UI.en).forEach(function (k) { s[k] = UI.en[k]; });
+    var shipped = lang === 'en' ? null : UI[lang];
+    if (shipped) Object.keys(shipped).forEach(function (k) { s[k] = shipped[k]; });
+    var custom = isObject(tree && tree.ui) ? tree.ui[lang] : null;
+    if (custom) Object.keys(custom).forEach(function (k) { if (own(s, k)) s[k] = custom[k]; });
+    return s;
+  }
+
+  function text(inst, value) { return pickLang(value, inst.lang, inst.fallbacks); }
+  function currentNode(inst) { return inst.path[inst.path.length - 1]; }
+
+  function button(cls, label, onClick) {
+    var b = el('button', 'aigo-btn ' + cls, label);
+    b.type = 'button';   // never a submit button: the host page may be a CMS form
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  /* Back appears as soon as there is something to go back to. */
+  function renderButtons(inst, primaryLabel, onPrimary) {
+    var row = el('div', 'aigo-buttons');
+    if (inst.path.length > 1 || inst.result) row.appendChild(button('aigo-btn-ghost', inst.s.back, inst.back));
+    row.appendChild(button('aigo-btn-primary', primaryLabel, onPrimary));
+    return row;
+  }
+
+  /* Progress header. Returns the step label ("Step 2 of 10"), used by the live
+   * announcement, or null when the tree declares no steps. */
+  function renderProgress(inst, host) {
+    var tree = inst.tree, s = inst.s;
+    var steps = arr(tree.steps);
+    if (!steps.length) return null;
+    var node = inst.result ? null : tree.nodes[currentNode(inst)];
+    var curIndex = -1;
+    steps.forEach(function (st, i) { if (node && st && st.id === node.step) curIndex = i; });
+
+    /* Steps actually visited come from the path, not from numbering. Skipped
+     * steps stay visibly skipped: that is information about the reasoning. */
+    var visited = Object.create(null);
+    inst.path.forEach(function (id) { if (own(tree.nodes, id)) visited[tree.nodes[id].step] = true; });
+
+    var label = inst.result
+      ? s.resultLabel
+      : fmt(s.stepOf, { n: (curIndex + 1) + (node && node.stepSuffix ? node.stepSuffix : ''), total: steps.length });
+    var meta = el('div', 'aigo-progress-meta');
+    meta.appendChild(el('span', 'aigo-eyebrow', s.progressLabel));
+    meta.appendChild(el('span', 'aigo-progress-text', label));
+    host.appendChild(meta);
+
+    /* Decorative: the information is carried by the label above and by the live
+     * region. A screen reader has no reason to cross ten dots. */
+    var bar = el('div', 'aigo-steps');
+    bar.setAttribute('aria-hidden', 'true');
+    steps.forEach(function (st, i) {
+      var state = 'todo';
+      if (!inst.result && i === curIndex) state = 'current';
+      else if (st && visited[st.id] === true && (inst.result || i !== curIndex)) state = 'done';
+      else if (inst.result || i < curIndex) state = 'skipped';
+      bar.appendChild(el('span', 'aigo-step aigo-step-' + state));
+    });
+    host.appendChild(bar);
+
+    if (!inst.result && curIndex >= 0) host.appendChild(el('p', 'aigo-step-name', text(inst, steps[curIndex].name)));
+    return label;
+  }
+
+  function renderQuestion(inst, host) {
+    var id = currentNode(inst);
+    var node = inst.tree.nodes[id];
+    var view = el('section', 'aigo-question');
+    var title = el('h' + inst.headingLevel, 'aigo-title', text(inst, node.title));
+    title.setAttribute('tabindex', '-1');
+    view.appendChild(title);
+    if (node.help) {
+      var help = el('div', 'aigo-help');
+      renderText(help, node.help, inst.lang, inst.fallbacks);
+      view.appendChild(help);
+    }
+    if (node.type === 'multi') renderMulti(inst, view, id, node); else renderSingle(inst, view, id, node);
+    host.appendChild(view);
+    return title;
+  }
+
+  /* Checkbox question. Ticking only records the answer; Continue routes. */
+  function renderMulti(inst, view, id, node) {
+    /* fieldset/legend: tabbing through the boxes re-announces the question.
+     * Without it one hears "Health" without knowing which question. */
+    var fs = el('fieldset', 'aigo-fieldset');
+    fs.appendChild(el('legend', 'aigo-sr-only', text(inst, node.title)));
+    var checked = Array.isArray(inst.answers[id]) ? inst.answers[id].slice() : [];
+    arr(node.options).forEach(function (o) {
+      var lab = el('label', 'aigo-check');
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = o.value;
+      input.checked = checked.indexOf(o.value) >= 0;
+      input.addEventListener('change', function () {
+        var at = checked.indexOf(o.value);
+        if (input.checked && at < 0) checked.push(o.value);
+        if (!input.checked && at >= 0) checked.splice(at, 1);
+        inst.answers[id] = checked.slice();
+        inst.save();
+      });
+      lab.appendChild(input);
+      var span = el('span');
+      inlineInto(span, text(inst, o.label));
+      lab.appendChild(span);
+      fs.appendChild(lab);
+    });
+    view.appendChild(fs);
+    inst.answers[id] = checked;
+    view.appendChild(renderButtons(inst, inst.s.continue, function () { inst.answer(id, inst.answers[id] || []); }));
+  }
+
+  /* Radio question. The `change` event only records the answer. Navigation
+   * happens on Continue, or on a MOUSE click: arrow keys also fire `click`
+   * (with detail 0), and reading the "No" option must never propel the reader
+   * into the next question. */
+  function renderSingle(inst, view, id, node) {
+    var s = inst.s;
+    /* fieldset/legend, exactly as renderMulti: without it a screen reader
+     * announces "Yes" with no idea which question it answers. */
+    var fs = el('fieldset', 'aigo-fieldset');
+    fs.appendChild(el('legend', 'aigo-sr-only', text(inst, node.title)));
+    var group = el('div', 'aigo-options');
+    var name = 'aigo-' + (++groupSeq) + '-' + id;
+    var chosen = typeof inst.answers[id] === 'string' ? inst.answers[id] : null;
+    arr(node.answers).forEach(function (a) {
+      var lab = el('label', 'aigo-option');
+      var input = document.createElement('input');
+      input.type = 'radio';
+      input.name = name;
+      input.value = a.value;
+      input.checked = chosen === a.value;
+      input.addEventListener('change', function () { inst.answers[id] = a.value; inst.save(); });
+      input.addEventListener('click', function (ev) {
+        if (ev.detail === 0) return;
+        inst.answers[id] = a.value;
+        inst.answer(id, a.value);
+      });
+      lab.appendChild(input);
+      var wrap = el('span', 'aigo-option-text');
+      wrap.appendChild(el('span', 'aigo-option-label', text(inst, a.label) || s[a.value] || a.value));
+      if (a.detail) {
+        var det = el('span', 'aigo-option-detail');
+        inlineInto(det, text(inst, a.detail));
+        wrap.appendChild(det);
+      }
+      lab.appendChild(wrap);
+      group.appendChild(lab);
+    });
+    fs.appendChild(group);
+    view.appendChild(fs);
+    view.appendChild(renderButtons(inst, s.continue, function () {
+      var v = inst.answers[id];
+      if (typeof v !== 'string') {
+        /* Nothing chosen. Moving the focus is not enough: a screen reader user
+         * hears nothing and cannot tell that the click was refused. */
+        var first = view.querySelector('input');
+        if (first) first.focus();
+        inst.announce(s.chooseOne);
+        return;
+      }
+      inst.answer(id, v);
+    }));
+  }
+
+  /* A link whose host is not one of the publisher's domains is shown WITH that
+   * host next to its label. An institution that adapted a tree and left a link
+   * to the source behind cannot hide it from its own readers, and neither can
+   * the institution that copies that adaptation in turn. */
+  function renderLink(inst, linkId) {
+    var link = inst.tree.links[linkId];
+    var li = el('li');
+    var a = el('a', 'aigo-link');
+    /* Texts are safe by construction (no innerHTML); a URL is not, since a
+     * script scheme runs on click. Scheme allow-list; anything else is inert. */
+    a.href = safeHref(link.href) || '#';
+    a.textContent = text(inst, link.label);
+    if (link.external) {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.appendChild(el('span', 'aigo-sr-only', ' ' + inst.s.newTab));
+    }
+    li.appendChild(a);
+    var host = hostOf(link.href);
+    var owned = arr(inst.tree.publisher && inst.tree.publisher.domains);
+    if (host && !owned.some(function (d) { return endsWithDomain(host, d); })) {
+      li.appendChild(el('span', 'aigo-foreign-host', ' (' + host + ')'));
+    }
+    return li;
+  }
+
+  function renderResult(inst, host) {
+    var tree = inst.tree, s = inst.s;
+    var r = tree.results[inst.result];
+    var view = el('section', 'aigo-result');
+
+    var banner = el('div', 'aigo-alert aigo-alert-' + (r.level || 'info'));
+    /* A heading, not a <strong>: the verdict is what a screen reader user jumps
+     * to, and heading navigation is how they jump. */
+    var head = el('h' + inst.headingLevel, 'aigo-result-title', text(inst, r.title));
+    head.setAttribute('tabindex', '-1');
+    banner.appendChild(head);
+    if (r.summary) renderText(banner, r.summary, inst.lang, inst.fallbacks);
+    view.appendChild(banner);
+
+    if (r.solution) {
+      var sol = el('div', 'aigo-solution');
+      /* label: "plain" (default) | "legal" | a text of the tree's own. */
+      var label = r.solution.label === 'legal' ? s.solutionLabelLegal
+                : (!r.solution.label || r.solution.label === 'plain') ? s.solutionLabel
+                : text(inst, r.solution.label);
+      sol.appendChild(el('div', 'aigo-solution-label', label));
+      var solText = el('div', 'aigo-solution-text');
+      inlineInto(solText, text(inst, r.solution.text));
+      sol.appendChild(solText);
+      view.appendChild(sol);
+    }
+
+    if (arr(r.allowed).length) view.appendChild(renderBlock(s.allowedLabel, arr(r.allowed).map(function (id) {
+      return own(tree.links, id) ? renderLink(inst, id) : null;
+    })));
+    if (arr(r.forbidden).length) view.appendChild(renderBlock(s.forbiddenLabel, arr(r.forbidden).map(function (t) {
+      var li = el('li');
+      inlineInto(li, text(inst, t));
+      return li;
+    })));
+
+    if (r.alert) {
+      var alert = el('div', 'aigo-alert aigo-alert-' + (r.alert.level || 'info'));
+      renderText(alert, r.alert.text, inst.lang, inst.fallbacks);
+      view.appendChild(alert);
+    }
+
+    view.appendChild(renderButtons(inst, s.restart, function () { inst.restart(); }));
+
+    if (tree.disclaimer) {
+      var disc = el('div', 'aigo-alert aigo-alert-info aigo-disclaimer');
+      renderText(disc, tree.disclaimer, inst.lang, inst.fallbacks);
+      view.appendChild(disc);
+    }
+    view.appendChild(renderFooter(inst));
+    host.appendChild(view);
+    return head;
+  }
+
+  function renderBlock(title, items) {
+    var block = el('div', 'aigo-block');
+    block.appendChild(el('div', 'aigo-block-title', title));
+    var ul = el('ul', 'aigo-list');
+    items.forEach(function (li) { if (li) ul.appendChild(li); });
+    block.appendChild(ul);
+    return block;
+  }
+
+  /* Publisher, review date, attribution and the content fingerprint. The
+   * review date is INTERFACE information: it tells the reader whether the
+   * recommendation they just received is six months or six years old. */
+  function renderFooter(inst) {
+    var tree = inst.tree, s = inst.s;
+    var foot = el('div', 'aigo-review');
+    if (tree.review && tree.review.date) {
+      var signed = tree.publisher && tree.publisher.name ? tree.publisher.name + ' · ' : '';
+      foot.appendChild(el('p', null, signed + fmt(s.reviewedOn, { date: tree.review.date, by: tree.review.by || '?' })));
+      var age = reviewAgeDays(tree);
+      if (age !== null && age > POLICY.reviewMaxDays) foot.appendChild(el('p', 'aigo-review-expired', fmt(s.expiredReview, { days: POLICY.reviewMaxDays })));
+    }
+    /* derivedFrom: "Name" or { name, url }. The attribution names the source
+     * and says it has not reviewed the adaptation. attribution: false hides it.
+     * It is not a lock: it is the disclosure an honest adopter can make, and
+     * the README asks for it in as many words. */
+    var source = tree.derivedFrom && (typeof tree.derivedFrom === 'string' ? tree.derivedFrom : tree.derivedFrom.name);
+    if (source && tree.attribution !== false) foot.appendChild(el('p', 'aigo-attribution', fmt(s.attribution, { source: source })));
+    foot.appendChild(el('p', 'aigo-content-id', fmt(s.contentId, { hash: fingerprint(tree), version: VERSION })));
+    return foot;
+  }
+
+  /* Refusal box: the only thing displayed when content is not publishable. */
+  function renderRefusal(root, issues, lang) {
+    var s = makeStrings(lang || 'en', null);
+    root.textContent = '';
+    var box = el('div', 'aigo aigo-error');
+    box.setAttribute('role', 'alert');
+    box.appendChild(el('strong', null, s.notPublished));
+    box.appendChild(el('p', null, s.notPublishedLead));
+    var ul = el('ul');
+    issues.forEach(function (i) {
+      var li = el('li');
+      li.appendChild(el('code', null, i.path));
+      li.appendChild(document.createTextNode(': ' + i.message));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    root.appendChild(box);
+  }
+
+  /* ===========================================================================
+   * 7. THE INSTANCE
+   *
+   * mount(root, tree, options) returns the instance, or null when the tree is
+   * refused (the refusal is rendered in `root`). Options:
+   *   lang          interface and content language (default: tree.defaultLang)
+   *   storageKey    sessionStorage key, null to disable (default: "aigo:" + id)
+   *   history       push one browser history entry per step (default: true)
+   *   headingLevel  1..6, the heading level of question titles (default: 2)
+   *   mode          "strict" (default off localhost) refuses non-publishable
+   *                 content; "preview" displays it with a banner
+   *   resume        restore a saved session if any (default: true)
+   * ======================================================================== */
+
+  /* Keys held by live instances, so that a second mount takes its own. */
+  var liveKeys = Object.create(null);
+  function claimKey(base) {
+    var k = base, i = 1;
+    while (liveKeys[k]) k = base + '#' + (++i);
+    liveKeys[k] = true;
+    return k;
+  }
+  function mount(root, tree, options) {
+    if (!root) throw new Error('AI_GO.mount: missing container.');
+    var opt = options || {};
+    var lang = opt.lang || (tree && tree.defaultLang) || (tree && arr(tree.langs)[0]) || 'en';
+
+    /* A missing tree is the most common failure: a forgotten comma in the
+     * content block, and the script never defined the variable. */
+    if (!tree || !tree.nodes || !tree.start) {
+      root.textContent = '';
+      var box = el('div', 'aigo aigo-error');
+      box.appendChild(el('p', null, makeStrings(lang, null).loadError));
+      root.appendChild(box);
+      return null;
+    }
+
+    var hostname = (typeof location !== 'undefined' && location.hostname) || '';
+    /* An empty hostname means a page opened by double-click (file:), but also
+     * an about:srcdoc or blob: frame inside a real site: only file: previews. */
+    var protocol = (typeof location !== 'undefined' && location.protocol) || 'file:';
+    var local = hostname ? isLocalHost(hostname) : protocol === 'file:';
+    var mode = opt.mode || (local ? 'preview' : 'strict');
+    var issues;
+    try {
+      /* Naming the local host rather than passing "" keeps the origin exemption
+       * for a file:// preview without granting it to an unknown host, such as an
+       * about:srcdoc frame inside someone else's site. */
+      issues = structure(tree).concat(guard(tree, local ? 'localhost' : hostname));
+    } catch (e) { issues = [{ path: 'guard', message: phrase('renderFailed', { error: e && e.message }) }]; }
+    if (issues.length && mode !== 'preview') {
+      renderRefusal(root, issues, lang);
+      return null;
+    }
+
+    /* Two containers carrying the same tree are two questionnaires, not one:
+     * sharing a key would make the second resume the first one's answers, and a
+     * single browser Back would move both. */
+    var defaultKey = claimKey('aigo:' + (tree.id || 'tree'));
+    var inst = {
+      root: root, tree: tree, issues: issues, mode: mode, lang: lang,
+      s: makeStrings(lang, tree),
+      fallbacks: fallbackLangs(tree),
+      storageKey: opt.storageKey === null ? null : (opt.storageKey || defaultKey),
+      useHistory: opt.history !== false,
+      headingLevel: Math.min(6, Math.max(1, parseInt(opt.headingLevel, 10) || 2)),
+      path: [tree.start],
+      answers: Object.create(null),
+      result: null,
+      live: el('div', 'aigo-sr-only'),   // the live region, created once and re-attached at every render
+      historyDepth: 0                    // entries this instance pushed; Back lets the browser pop them
+    };
+    inst.live.setAttribute('role', 'status');
+    inst.live.setAttribute('aria-live', 'polite');
+    /* History entries are tagged so that two instances on one page only react
+     * to their own entries. */
+    var historyTag = inst.storageKey || defaultKey;
+
+    /* ---------------------------------------------------------- persistence
+     * sessionStorage only, never localStorage: keeping "this person declares
+     * handling health data" between two visits, in a tool whose subject IS data
+     * protection, would be indefensible. Answers live in the session and in the
+     * tab's history stack, and die with the tab. */
+    function snapshot() {
+      return { path: inst.path.slice(), answers: inst.answers, result: inst.result, tv: tree.version, lang: inst.lang };
+    }
+    function save() {
+      if (!inst.storageKey) return;
+      try { sessionStorage.setItem(inst.storageKey + ':state', JSON.stringify(snapshot())); } catch (e) {}
+    }
+    function readSession() {
+      if (!inst.storageKey) return false;
+      try {
+        var raw = sessionStorage.getItem(inst.storageKey + ':state');
+        return raw ? restore(JSON.parse(raw)) : false;
+      } catch (e) { return false; }
+    }
+    /* A tab opened before a redeployment may reference a removed node or an
+     * older tree version. Restoring blindly would leave a blank area with no
+     * way out: the state is rejected and the reader is told. */
+    function restore(state) {
+      if (!state || !Array.isArray(state.path) || !state.path.length) return false;
+      var sameVersion = state.tv === undefined || tree.version === undefined || state.tv === tree.version;
+      var known = state.path.every(function (id) { return own(tree.nodes, id); });
+      var okResult = !state.result || own(tree.results, state.result);
+      if (!sameVersion || !known || !okResult) { announce(inst.s.staleError); return false; }
+      inst.path = state.path.slice();
+      /* A session written before an option was renamed, or edited by hand, can
+       * hold values the tree no longer offers. They showed no ticked box and yet
+       * routed as though one were ticked. Keep only what the tree still offers. */
+      inst.answers = Object.create(null);
+      var saved = isObject(state.answers) ? state.answers : {};
+      Object.keys(saved).forEach(function (id) {
+        if (!own(tree.nodes, id)) return;
+        var node = tree.nodes[id], v = saved[id];
+        if (node.type === 'multi') {
+          if (!Array.isArray(v)) return;
+          var offered = arr(node.options).map(function (o) { return o && o.value; });
+          inst.answers[id] = v.filter(function (x) { return offered.indexOf(x) >= 0; });
+        } else if (arr(node.answers).some(function (a) { return a && a.value === v; })) {
+          inst.answers[id] = v;
+        }
+      });
+      inst.result = state.result || null;
+      if (state.lang && arr(tree.langs).indexOf(state.lang) >= 0) setLang(state.lang, true);
+      return true;
+    }
+
+    /* --------------------------------------------------------- announcements
+     * A live region only speaks when its content CHANGES: reaching the same
+     * result twice in a row would stay silent. So clear, then refill on the
+     * frame after next. requestAnimationFrame is suspended in a background tab,
+     * which would lose the announcement entirely, so a timer races it and the
+     * first one to arrive wins. The property is TESTED and then CALLED, never
+     * tested on window and called as a bare global. */
+    function announce(msg) {
+      inst.live.textContent = '';
+      var done = false;
+      var fill = function () { if (done) return; done = true; inst.live.textContent = msg; };
+      var raf = window.requestAnimationFrame;
+      if (raf) raf(function () { raf(fill); });
+      setTimeout(fill, 50);
+    }
+    inst.announce = announce;
+
+    /* --------------------------------------------------------------- routing
+     * The only branching rule of a checkbox question: "at least one ticked"
+     * versus "none". `polarity` changes NOTHING here: it is a declaration for
+     * human review. A polarity that altered behaviour would be one more trap. */
+    function nextFrom(nodeId, value) {
+      var node = tree.nodes[nodeId];
+      if (node.type === 'multi') {
+        var rule = isObject(node.next) ? node.next : {};
+        return Array.isArray(value) && value.length
+          ? { to: rule.ifAny, result: rule.ifAnyResult }
+          : { to: rule.else, result: rule.elseResult };
+      }
+      var a = arr(node.answers).filter(function (x) { return x && x.value === value; })[0];
+      return a ? { to: a.to, result: a.result } : {};
+    }
+    function answer(nodeId, value) {
+      inst.answers[nodeId] = value;
+      var next = nextFrom(nodeId, value);
+      if (next.result && own(tree.results, next.result)) { inst.result = next.result; render(true); }
+      else if (next.to && own(tree.nodes, next.to)) { inst.path.push(next.to); inst.result = null; render(true); }
+      /* An unresolved target is refused at mount time, so this branch is only
+       * reachable in preview mode. It says so instead of doing nothing. */
+      else renderRefusal(root, [{ path: 'nodes.' + nodeId, message: phrase('noTarget') }], inst.lang);
+    }
+    /* Back = pop. With history on, the browser pops and onPop restores the
+     * previous state, so this button and the browser's never disagree. */
+    function back() {
+      if (!inst.result && inst.path.length < 2) return;
+      if (inst.useHistory && inst.historyDepth > 0) { inst.historyDepth--; history.back(); return; }
+      if (inst.result) inst.result = null; else inst.path.pop();
+      render(false, true);
+    }
+    function resetToStart() {
+      inst.path = [tree.start];
+      inst.answers = Object.create(null);
+      inst.result = null;
+    }
+    function restart() { resetToStart(); render(true); }
+    function setLang(l, quiet) {
+      if (arr(tree.langs).indexOf(l) < 0) return;
+      inst.lang = l;
+      inst.s = makeStrings(l, tree);
+      if (!quiet) render(false);
+    }
+
+    /* ---------------------------------------------------------------- render
+     * `push` is true for a forward navigation: focus moves, the change is
+     * announced, the page scrolls and a history entry is pushed. Anything not
+     * foreseen ends as a refusal in the container rather than an empty one
+     * (principle 6). */
+    function render(push, speak) {
+      try { paint(push, speak); }
+      catch (e) {
+        renderRefusal(root, [{ path: 'render', message: phrase('renderFailed', { error: e && e.message }) }], inst.lang);
+      }
+    }
+    function paint(push, speak) {
+      root.textContent = '';
+      root.classList.add('aigo');
+      root.appendChild(inst.live);
+
+      var main = el('div', 'aigo-main');
+      var stepLabel = renderProgress(inst, main);
+      var focusTarget = inst.result ? renderResult(inst, main) : renderQuestion(inst, main);
+      root.appendChild(main);
+
+      if (push || speak) {
+        /* preventScroll: moving the focus scrolls by default, which would
+         * cancel the deliberate repositioning below. */
+        focusTarget.focus({ preventScroll: true });
+        var title = inst.result ? text(inst, tree.results[inst.result].title) : text(inst, tree.nodes[currentNode(inst)].title);
+        var lead = inst.result ? inst.s.resultLabel : stepLabel;
+        announce((lead ? lead + inst.s.colon : '') + (title || ''));
+        try { root.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' }); }
+        catch (e) { root.scrollIntoView(); }
+      }
+
+      save();
+      if (inst.useHistory) {
+        try {
+          if (push) { history.pushState({ aigo: historyTag, s: snapshot() }, ''); inst.historyDepth++; }
+          /* Not a push: a Back that walked the path by hand, after a reload for
+           * instance. The entry we stand on still describes the view we just
+           * left, and the next browser Back would return to it. */
+          else history.replaceState({ aigo: historyTag, s: snapshot() }, '');
+        } catch (e) {}
+      }
+      root.setAttribute('lang', inst.lang);
+      root.setAttribute('data-ai-go-engine', VERSION);
+      root.setAttribute('data-ai-go-content', fingerprint(tree));
+      if (inst.mode === 'preview') {
+        root.insertBefore(el('p', 'aigo-banner', inst.issues.length
+          ? fmt(inst.s.previewBanner, { n: inst.issues.length }) : inst.s.previewOk), root.firstChild);
+      }
+      /* In an iframe the parent decides the height, and a question can land
+       * outside the visible area after a navigation. The height is posted; a
+       * parent that does not listen loses nothing. It is the only thing this
+       * engine ever sends anywhere, and it never leaves the browser. */
+      postHeight();
+    }
+    function postHeight() {
+      try {
+        if (window.top === window.self) return;
+        window.parent.postMessage({ aigo: 'height', px: document.documentElement.scrollHeight }, '*');
+      } catch (e) {}
+    }
+
+    /* ------------------------------------------------------------- lifecycle */
+    function onPop(ev) {
+      var st = ev.state;
+      if (!st || st.aigo !== historyTag) return;
+      if (!restore(st.s)) resetToStart();
+      render(false, true);
+    }
+    /* bfcache: coming back from another site restores the page as it was;
+     * nothing else resynchronises the state. */
+    function onShow(ev) { if (ev.persisted) { readSession(); render(false); } }
+
+    if (inst.useHistory) window.addEventListener('popstate', onPop);
+    window.addEventListener('pageshow', onShow);
+
+    inst.answer = answer;
+    inst.back = back;
+    inst.restart = restart;
+    inst.setLang = function (l) { setLang(l, false); };
+    /* Interaction-time save. paint() pushes a snapshot when a view is drawn,
+     * that is before any answer exists on it. Ticking a box must also update
+     * the entry we are standing on, or Back restores a snapshot taken too early
+     * and the boxes come back empty. Hooked on inst.save, never on save():
+     * paint() calls save() before pushState, and a replaceState there would
+     * overwrite the previous entry and shift the whole stack by one. */
+    inst.save = function () {
+      save();
+      if (inst.useHistory) {
+        try { history.replaceState({ aigo: historyTag, s: snapshot() }, ''); } catch (e) {}
+      }
+    };
+    inst.getState = snapshot;
+    inst.destroy = function () {
+      if (inst.useHistory) window.removeEventListener('popstate', onPop);
+      window.removeEventListener('pageshow', onShow);
+      root.textContent = '';
+      root.classList.remove('aigo');
+    };
+    Object.defineProperty(inst, 'node', { get: function () { return inst.result ? null : currentNode(inst); } });
+
+    if (opt.resume !== false) readSession();
+    render(false);
+    if (inst.useHistory) {
+      try { history.replaceState({ aigo: historyTag, s: snapshot() }, ''); } catch (e) {}
+    }
+    return inst;
+  }
+
+  /* ===========================================================================
+   * 8. AUTO-MOUNT BY ATTRIBUTE
+   *
+   * Every container carrying data-ai-go is mounted once, reading data-lang,
+   * data-history="false", data-storage="none", data-mode and
+   * data-heading-level. Default language: the page language when the tree
+   * declares it. On a page carrying TWO questionnaires, give
+   * data-history="false" to all but one, or the browser's Back button pops the
+   * entries of both.
+   * ======================================================================== */
+
+  function mountAll(scope) {
+    if (typeof document === 'undefined') return [];
+    var made = [];
+    (scope || document).querySelectorAll('[data-ai-go]:not([data-ai-go-mounted])').forEach(function (root) {
+      root.setAttribute('data-ai-go-mounted', '1');
+      var name = root.getAttribute('data-ai-go');
+      var tree = (typeof window !== 'undefined') ? window[name] : undefined;
+      var docLang = (document.documentElement.lang || '').split('-')[0].toLowerCase();
+      var lang = root.getAttribute('data-lang') || null;
+      if (!isObject(tree)) {
+        renderRefusal(root, [{ path: name, message: fmt(makeStrings(lang || docLang, null).notLoaded, { name: name }) }], lang || docLang);
+        return;
+      }
+      if (!lang) lang = arr(tree.langs).indexOf(docLang) >= 0 ? docLang : (tree.defaultLang || arr(tree.langs)[0]);
+      made.push(mount(root, tree, {
+        lang: lang,
+        history: root.getAttribute('data-history') !== 'false',
+        /* undefined, not a key of our own: mount() derives the default and
+         * hands out a distinct one per live instance. Computing it here gave
+         * two containers of the same tree one shared session. */
+        storageKey: root.getAttribute('data-storage') === 'none' ? null : undefined,
+        mode: root.getAttribute('data-mode') || undefined,
+        headingLevel: root.getAttribute('data-heading-level') || undefined
+      }));
+    });
+    return made;
+  }
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { mountAll(); });
+    else setTimeout(function () { mountAll(); }, 0);
+  }
+
+  return {
+    version: VERSION,
+    UI: UI,
+    POLICY: POLICY,
+    mount: mount,
+    mountAll: mountAll,
+    structure: structure,
+    guard: guard,
+    fingerprint: fingerprint,
+    hash: hash
+  };
+})();
+</script>
+<!--
+     AI_GO-ENGINE-END
+-->
+<!--
+     AI_GO-END
+-->
+
+</body>
+</html>

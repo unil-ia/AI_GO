@@ -1,0 +1,36 @@
+# Citation metadata, Citation File Format 1.2.0.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "AI_GO: a guided decision-tree engine in a single HTML file"
+abstract: "A guided decision-tree engine for websites, delivered as one HTML file: the adopting institution's content sits above six comment markers, the engine below them. No build step, no dependency, no network request. The engine handles branching, history, session resumption, translation, screen-reader announcements and a fail-closed publication guard; a companion validator page runs the engine of the file it is given, so the publication verdict exists in one place only. It was written for the University of Lausanne questionnaire published as AI_GO."
+# The people credited on the published tool. A harvested citation that named
+# only the unit would drop the authors of the reasoning the tool carries.
+authors:
+  - name: "Université de Lausanne, Cellule stratégique IA"
+    city: "Lausanne"
+    country: "CH"
+  - given-names: "Aurelia"
+    family-names: "Tamò-Larrieux"
+    affiliation: "Université de Lausanne"
+  - given-names: "Selma"
+    family-names: "Lamas Valverde"
+    affiliation: "Université de Lausanne"
+  - given-names: "Emma"
+    family-names: "Lo Cicero"
+    affiliation: "Université de Lausanne"
+  - given-names: "Clara"
+    family-names: "Montangero"
+    affiliation: "Université de Lausanne"
+version: "3.0.1"
+date-released: "2026-09-03"
+license: "BSD-3-Clause"
+license-url: "https://github.com/unil-ia/AI_GO/blob/main/LICENSE"
+notes: "BSD-3-Clause covers the engine, the validator and the test harness. The content block and the tree format are CC0-1.0. The questionnaire content in reference/ is all rights reserved and is not licensed for reuse; see LICENSE."
+keywords:
+  - decision tree
+  - questionnaire
+  - accessibility
+  - data protection
+  - artificial intelligence
+repository-code: "https://github.com/unil-ia/AI_GO"
