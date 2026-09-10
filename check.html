@@ -1,0 +1,1793 @@
+<!doctype html>
+<!-- Copyright (c) 2026, Université de Lausanne, Cellule stratégique IA.
+     SPDX-License-Identifier: BSD-3-Clause. Redistribution and use, with or without
+     modification, are permitted under the three conditions stated in LICENSE, which
+     also carries the warranty disclaimer; LICENSE must accompany any redistribution
+     of this file, in source or in binary. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'; base-uri 'none'; form-action 'none'">
+<title>AI_GO&nbsp;: vérifier un fichier</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 5rem;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1b2126; background: #fff; line-height: 1.6;
+  }
+  .wrap { max-width: 50rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+  h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
+  .lead { color: #5a666f; margin: 0 0 1.5rem; }
+  .drop {
+    border: 2px dashed #9aa7af; border-radius: 6px;
+    padding: 2rem 1.5rem; text-align: center; color: #5a666f;
+    background: #f4f6f7; cursor: pointer;
+  }
+  .drop.over { border-color: #2b5f70; background: #e6eff1; color: #1b2126; }
+  .drop input { display: block; margin: .75rem auto 0; }
+  textarea { width: 100%; min-height: 6rem; margin-top: .75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; }
+  button { font: inherit; padding: .5rem 1rem; border: 1px solid #9aa7af; border-radius: 4px; background: #fff; cursor: pointer; }
+  .verdict {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    padding: 1rem 1.25rem; border-radius: 4px; border-left: 4px solid;
+    margin: 1.5rem 0 1rem; font-weight: 600;
+  }
+  .v-ok   { background: #e6f0e9; border-color: #2f6b45; color: #1e4a2e; }
+  .v-warn { background: #f7efdd; border-color: #8a6410; color: #5c440b; }
+  .v-bad  { background: #f7e8e5; border-color: #96382a; color: #6b281e; }
+  .verdict small { font-weight: 400; }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+  th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e4e9eb; vertical-align: top; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: #5a666f; background: #f4f6f7; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  code { background: #f4f6f7; padding: .1em .3em; border-radius: 2px; }
+  pre { background: #f7e8e5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: .8125rem; }
+  .lvl { font-weight: 600; white-space: nowrap; }
+  .lvl-error { color: #96382a; }
+  .lvl-warn { color: #8a6410; }
+  .paths { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; list-style: none; padding: 0; }
+  .paths li { padding: .2rem 0; border-bottom: 1px solid #f0f3f4; }
+  .muted { color: #5a666f; font-size: .875rem; }
+  footer { margin-top: 3rem; }
+  .lang { display: flex; align-items: baseline; gap: .5rem; margin: 0 0 1rem; }
+  .lang button { padding: .25rem .6rem; font-size: .875rem; }
+  .lang button[aria-pressed="true"] { background: #2b5f70; border-color: #2b5f70; color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="lang"><span id="t-langLabel"></span>
+    <button type="button" id="lang-fr" lang="fr" aria-pressed="true">Français</button>
+    <button type="button" id="lang-en" lang="en" aria-pressed="false">English</button></p>
+
+  <h1 id="t-title"></h1>
+  <p class="lead" id="t-lead"></p>
+
+  <div class="drop" id="drop">
+    <span id="t-drop"></span>
+    <input type="file" id="file" accept=".html,.htm,.js,.txt">
+  </div>
+  <p class="muted"><label for="host" id="t-hostLabel"></label>
+    <input type="text" id="host" size="26" autocomplete="off" spellcheck="false"></p>
+  <p class="muted" id="t-exec"></p>
+
+  <details>
+    <summary id="t-pasteHead"></summary>
+    <textarea id="paste" spellcheck="false"></textarea>
+    <button type="button" id="pasteGo"></button>
+  </details>
+
+  <div id="out"></div>
+
+  <footer class="muted" id="t-foot"></footer>
+</div>
+
+<script>
+/* =============================================================================
+ * check.html: the validator. It never ships to a visitor.
+ *
+ * IT DOES NOT CARRY A SECOND COPY OF THE PUBLICATION GUARD. It extracts the
+ * engine block from the file you drop and runs THAT engine's structure() and
+ * guard(): the publication verdict you read here is the one your own page will
+ * render, not an approximation of it. The origin policy therefore exists once
+ * in this repository, in the engine block of ai-go.html.
+ *
+ * IT DOES NOT JUDGE THE BLOCK EITHER. It judges the FILE. The scripts of the
+ * dropped file are run, in order, in a sandbox holding a global object of its
+ * own, and the questionnaire is then read off that global object under the name
+ * the data-ai-go attribute gives, which is, character for character, what the
+ * engine does with window[name] once the page has finished loading. Judging the
+ * text between the two content markers instead let four different files be
+ * certified while a fifth was served: a later script rewriting a branch, a
+ * `let` hidden behind a continuation comma, a `var` quoted in a comment, and a
+ * second content block. The language now answers the question "is this on
+ * window", because the language is the only thing that knows.
+ *
+ * What this page adds, and what deliberately never runs in a visitor's
+ * browser: path enumeration, unreachable nodes, cycles, dead ends, polarity
+ * declarations, review age, source-text hygiene, and a routing diff between
+ * two versions of a file.
+ *
+ * The pure half of this page (marker parsing, block extraction, path
+ * enumeration, the extra coherence checks, the source-text lint) is returned
+ * as AI_GO_CHECK and is what the harness exercises: there is one enumerator in
+ * this repository, not one here and one in the tests.
+ * ========================================================================== */
+var AI_GO_CHECK = (function () {
+  'use strict';
+
+  /* Written by code point, never typed: this page is scanned by its own lint. */
+  var NBSP = String.fromCharCode(160);
+  /* The OTHER one. U+202F is what a French word processor puts before a colon,
+   * a semicolon and a question mark, so it arrives in a content block by paste
+   * far more often than U+00A0 does, and it is just as invisible in an editor
+   * and just as lost on the next copy. The lint knew one of the two. */
+  var NNBSP = String.fromCharCode(0x202f);
+  var NBSPS = [{ ch: NBSP, code: 'U+00A0' }, { ch: NNBSP, code: 'U+202F' }];
+
+  /* THE BASE TABLE. English, the way the engine keeps English as its base.
+   * Nothing here is read by a reader until setLang has filled S below. */
+  var EN = {
+    title: 'Check a file',
+    lead: 'Drop your ai-go.html file below. Nothing is sent anywhere: everything happens in your browser.',
+    drop: 'Drag a file here, or choose one:',
+    hostLabel: 'Domain where you will publish it (optional):',
+    pageLang: 'The page declares lang="{page}" but the questionnaire is written in "{tree}". A screen reader would read it with the wrong voice.',
+    verdictFor: 'Publication verdict computed for {host}.',
+    verdictForNone: 'Publication verdict for an unnamed domain: the only check left out is the one that compares your domain with the domains the content declares. Everything else below is reported exactly as it would be with a domain typed. Type your domain above to check that one too.',
+    exec: 'The scripts of the file you drop are run here, in order, in a sandbox of their own: this page reads the questionnaire off that sandbox the way the engine reads it off window. Nothing is sent anywhere and nothing survives the check. Only drop your own files.',
+    pasteHead: 'Or paste a block (from the begin marker to the end marker)',
+    pasteGo: 'Check this block',
+    foot: 'This page depends on no neighbouring file. It reads the engine out of the file you give it.',
+
+    syntax: 'The file could not be read',
+    syntaxHint: 'Syntax error. Most frequent causes: a missing or extra comma, or a straight apostrophe inside a single-quoted string. Open the file in an editor that underlines syntax errors.',
+    noContent: 'No content found in this file',
+    notMountable: 'This file would not mount its questionnaire',
+    noContentHint: 'The file must declare an object variable, for example: var AI_GO_CONTENT = { ... };',
+    /* Everything this page refuses to guess about WHICH object it is judging.
+     * Each names the object the page would have mounted, and the one edit that
+     * settles it. The example container is described rather than spelled out: a
+     * container written here would be found by this page's own reader, if this
+     * page were ever dropped on itself. */
+    noContainerHint: 'No container in this file. The engine mounts the variable named by the data-ai-go attribute of a container element, and there is none here. If you pasted a block, paste it from the AI_GO-BEGIN line to the AI_GO-END line, container included.',
+    twoContainersHint: 'This file carries containers naming two different variables ({names}), so there is no single questionnaire to judge. Check one file, with one container, at a time.',
+    badNameHint: 'The container names "{name}", which is not a variable name. Correct the data-ai-go attribute.',
+    notDeclaredHint: 'The container names "{name}". Every script of this file was run, in order, and window["{name}"] is still undefined, which is where the engine looks. Either the attribute or the variable was renamed and the other was not.',
+    /* No longer read off the source: the file was RUN, the name was visible to
+     * the code and absent from the global object, and only a lexical
+     * declaration does that. The sentence therefore names the three keywords
+     * that produce it instead of quoting one the source may not even carry. */
+    notGlobalHint: 'The container names "{name}", and this file does declare it, but not on window: a top-level let, const or class is not a property of window, and the engine reads window["{name}"]. On your site the page would show "did not load". Write var {name} = ... or window.{name} = ... instead.',
+    notObjectHint: 'The container names "{name}", and once the file has run it is not an object. The file must declare the questionnaire itself.',
+    notRunHint: 'This file also carries {n} script(s) this page did not run (a script loaded from a separate file, or a module): if the questionnaire is declared in one of them, this page cannot see it and neither can this verdict.',
+    scriptThrew: 'A script of this file threw while it ran: {msg}. The browser drops that script and runs the others, so the page still mounts, but that script did none of what it was meant to do.',
+    engineBroken: 'The engine block of this file does not run',
+    crashed: 'The check failed: ',
+
+    bad: 'Blocking errors: {n}',
+    notPublishable: 'Coherent, but NOT publishable: {n} point(s) to complete',
+    uiMissing: 'Language "{lang}" has no interface labels for: {keys}. Those are served in English.',
+    chromeTerm: 'The page around the questionnaire still names {origin} ({term}). The engine cannot see the title, the heading or the standfirst, so it will publish them as they are.',
+    chromeSentinel: 'The page around the questionnaire still carries the placeholder "{sentinel}", outside the tree: in the title, the heading, the standfirst, or the message shown when scripts do not run. The engine only reads the tree, so it will publish this as it stands.',
+    okWarn: 'Publishable, {n} warning(s)',
+    ok: 'Publishable',
+    counts: '{nodes} question(s), {results} result(s), {paths} path(s)',
+
+    fileH: 'The file',
+    markersOk: 'The six markers are present, once each, in order.',
+    markersBad: 'Markers missing, duplicated or out of order: {list}. An editor or a CMS has probably rewritten them.',
+    /* Three sentences, not one, because the three failures are not the same
+     * failure. A DUPLICATED marker makes the block boundaries ambiguous: this
+     * page reads the first pair and the browser mounts whatever the last script
+     * assigned, so the receipt describes one of several possible objects, and
+     * that is blocking. OUT OF ORDER makes the extraction meaningless, also
+     * blocking. MISSING is what a partial paste looks like, so it is reported
+     * and not made blocking: the verdict already says the engine is absent. */
+    markersDup: 'Marker present more than once: {list}. The block boundaries are ambiguous, so this receipt cannot say which object your page would mount. Remove the duplicate.',
+    markersOrder: 'Markers out of order: {list}. The blocks cannot be read as written; nothing below describes this file reliably.',
+    markersMissing: 'Marker missing: {list}. If you dropped a whole file, an editor has eaten it. If you pasted a fragment, paste from the AI_GO-BEGIN line to the AI_GO-END line.',
+    engineIntact: 'Engine {v}, intact.',
+    engineChanged: 'Engine {v}, MODIFIED LOCALLY (declared {d}, computed {c}). An update will overwrite that change.',
+    engineNone: 'No engine block in this file: the publication verdict cannot be computed, only coherence. Drop your complete ai-go.html file.',
+    prints: 'content fingerprint {hash}',
+    printsLead: 'The fingerprint is one half of the receipt of your review: it covers the start, the questions, the results and the links. The engine prints it under every result of the page that is actually served, so you can compare the sheet your legal service signed with the live page. It is a short checksum, meant to catch a change nobody meant to make, not a signature in the legal sense: it is not built to resist someone setting out to forge one. What it does not cover, the line below it does.',
+
+    publication: 'Publication',
+    /* The old sentence said the declaration check was skipped and everything
+     * else was identical. Only the first half was true: with no domain the
+     * reserved-term lock on the page around the questionnaire was demoted to a
+     * warning, and warnings were counted and never drawn, so the DEFAULT state
+     * of this page (nobody has typed anything yet) printed the greenest
+     * sentence it owns over a copy wearing the origin's name in its headline.
+     * The demotion is gone; so is the claim, which now names what it skips. */
+    publicationLead: 'What the engine of THIS file requires before displaying the content on your site. No domain given, so the one check left out is the comparison between your domain and the domains the content declares. Everything else is reported here as it would be on your site.',
+    publicationLeadHost: 'What the engine of THIS file requires before displaying the content on {host}, the domain you typed. Change it above and this verdict is recomputed.',
+    publicationOk: 'Nothing to complete: the engine will display this content.',
+    /* The sentence above is about the ENGINE, and it stays true when this page
+     * refuses the file for something the engine cannot see: the title, the
+     * heading and the standfirst are outside the tree, so guard() never reads
+     * them. True and, read alone under a red banner, reassuring in exactly the
+     * wrong direction. So when the two disagree, the section says which. */
+    publicationOkBlocked: 'Nothing to complete for the engine: it would display this content. But the engine cannot see the page around the questionnaire, and this page found {n} blocking point(s) there. Read the table below before you publish.',
+
+    coherence: 'Coherence',
+    coherenceLead: 'The permanent check, to run on every content change. Lines marked with a cross make the engine refuse to display; the others are warnings only this page sees.',
+    coherenceOk: 'Nothing to report.',
+
+    source: 'Source-text hygiene',
+    pathsH: 'Possible paths',
+    pathsLead: 'Rule equivalence classes: a checkbox question yields two branches ("at least one" / "none"), because that is what the routing distinguishes. This is the list you read aloud with your legal service, and the list you have signed.',
+    truncated: 'Enumeration INCOMPLETE (tree too large or too deep): this list is not reliable.',
+
+    updateH: 'Update',
+    updateLead: 'Drop the old file first, then the new one: this section compares the two.',
+    updateNone: 'Drop a second file to compare.',
+    routingSame: 'The routing has not moved: {n} identical paths.',
+    routingMoved: 'The routing has moved: {a} path(s) added, {r} removed. A new legal review is due.',
+    printsSame: 'Fingerprint unchanged: {h}. Neither the start, nor a question, nor a result, nor a link has moved.',
+    printsMoved: 'Fingerprint changed: {ho} to {hn}.',
+    signs: 'signature {hash}',
+    signsLead: 'The signature is the other half of the receipt: it covers what the fingerprint does not draw on, and what a reader sees all the same -- the publisher, the review, the disclaimer, the attribution, the law named, the step names under the progress bar and the interface labels. A copy that renamed its steps and turned its Continue button into "Publish unchecked" handed back a fingerprint identical to the original, character for character. Compare both, or you have compared half the page.',
+    signsSame: 'Signature unchanged: {h}. Neither the signatories nor the wording around the questions has moved.',
+    signsMoved: 'Signature changed: {ho} to {hn}. The questions may be untouched; who answers for them, or the wording around them, is not.',
+
+    where: 'Where', msg: 'Message', level: 'Level',
+    reviewed: 'Reviewed on {date} by {by}', noReview: 'No review date',
+    jurisdiction: 'Jurisdiction: {j}', legalBasis: 'Legal basis: {b}',
+
+    line: 'line {n}',
+    literalNbsp: 'Literal non-breaking space ({code}). Write it as the six characters of the escape instead.',
+    chromeNbsp: 'Literal non-breaking space ({code}) outside the content block, where neither the typography tool nor the escape rule reaches. In markup, write it as the six characters of the HTML entity instead.',
+    quoteApostrophe: 'Apostrophe inside a single-quoted string. Use double quotes.',
+    markupInText: 'A text contains a sequence that would close the script block and kill the page: {seq}.',
+    angleInText: 'A text contains an angle bracket. Avoid them: nothing is ever interpreted as markup, but an open tag breaks the file.',
+    unreachableNode: 'Question unreachable from the start node.',
+    unreachableResult: 'Unreachable result.',
+    dangling: 'Path with no outcome: {path}',
+    cycle: 'Cycle detected on "{id}".',
+    badPolarity: 'Expected value for `polarity`: "direct" or "inverse".',
+    noPolarity: 'Checkbox question with no declared `polarity`. Declare it, so the intent survives review.',
+    untranslated: 'Untranslated text (a bare string where the tree declares {langs}). It will display as is in every language.',
+    defaultLangNotDeclared: 'The default language "{lang}" is not in `langs`.',
+    oldReview: 'The review is {days} days old.',
+    badReviewDate: 'Unreadable review date.',
+
+    /* The chrome this page writes itself, and the four `where` labels the
+     * rows below used to carry as literals in the middle of the code. */
+    pageTitle: 'AI_GO: check a file',
+    langLabel: 'Language of this page:',
+    whereMarkers: 'markers',
+    whereEngine: 'engine block',
+    whereScript: 'a script of this file',
+    whereChrome: 'the page around the questionnaire'
+  };
+
+  /* THE SAME TABLE IN FRENCH. Key by key, over the base above, the way the
+   * engine ships a `fr` label set over its English one. A key left out here
+   * falls back to the English sentence rather than blanking the page. */
+  var FR = {
+    title: 'Vérifier un fichier',
+    lead: 'Déposez votre fichier ai-go.html ci-dessous. Rien n’est envoyé nulle part\u00a0: tout se passe dans votre navigateur.',
+    drop: 'Glissez un fichier ici, ou choisissez-en un\u00a0:',
+    hostLabel: 'Domaine où vous le publierez (facultatif)\u00a0:',
+    pageLang: 'La page déclare lang="{page}" alors que le questionnaire est écrit en «\u00a0{tree}\u00a0». Un lecteur d’écran le lirait avec la mauvaise voix.',
+    verdictFor: 'Verdict de publication calculé pour {host}.',
+    verdictForNone: 'Verdict de publication pour un domaine non nommé\u00a0: la seule vérification laissée de côté est celle qui compare votre domaine aux domaines que le contenu déclare. Tout le reste ci-dessous est rapporté exactement comme il le serait avec un domaine saisi. Saisissez le vôtre ci-dessus pour vérifier celui-là aussi.',
+    exec: 'Les scripts du fichier que vous déposez sont exécutés ici, dans l’ordre, dans un bac à sable qui leur est propre\u00a0: cette page y lit le questionnaire comme le moteur le lit sur window. Rien n’est envoyé nulle part et rien ne survit à la vérification. Ne déposez que vos propres fichiers.',
+    pasteHead: 'Ou collez un bloc (du marqueur de début au marqueur de fin)',
+    pasteGo: 'Vérifier ce bloc',
+    foot: 'Cette page ne dépend d’aucun fichier voisin. Elle lit le moteur dans le fichier que vous lui donnez.',
+
+    syntax: 'Le fichier n’a pas pu être lu',
+    syntaxHint: 'Erreur de syntaxe. Causes les plus fréquentes\u00a0: une virgule manquante ou en trop, ou une apostrophe droite dans une chaîne écrite entre guillemets simples. Ouvrez le fichier dans un éditeur qui souligne les erreurs de syntaxe.',
+    noContent: 'Aucun contenu trouvé dans ce fichier',
+    notMountable: 'Ce fichier ne monterait pas son questionnaire',
+    noContentHint: 'Le fichier doit déclarer une variable objet, par exemple\u00a0: var AI_GO_CONTENT = { ... };',
+    noContainerHint: 'Aucun conteneur dans ce fichier. Le moteur monte la variable que nomme l’attribut data-ai-go d’un élément conteneur, et il n’y en a aucun ici. Si vous avez collé un bloc, collez-le de la ligne AI_GO-BEGIN à la ligne AI_GO-END, conteneur compris.',
+    twoContainersHint: 'Ce fichier porte des conteneurs qui nomment deux variables différentes ({names})\u00a0: il n’y a donc pas un questionnaire unique à juger. Vérifiez un fichier, avec un conteneur, à la fois.',
+    badNameHint: 'Le conteneur nomme «\u00a0{name}\u00a0», qui n’est pas un nom de variable. Corrigez l’attribut data-ai-go.',
+    notDeclaredHint: 'Le conteneur nomme «\u00a0{name}\u00a0». Tous les scripts de ce fichier ont été exécutés, dans l’ordre, et window["{name}"] est toujours indéfini, or c’est là que le moteur regarde. L’attribut a été renommé et pas la variable, ou l’inverse.',
+    notGlobalHint: 'Le conteneur nomme «\u00a0{name}\u00a0», et ce fichier le déclare bien, mais pas sur window\u00a0: un let, un const ou une class de premier niveau n’est pas une propriété de window, et le moteur lit window["{name}"]. Sur votre site, la page afficherait «\u00a0ne s’est pas chargé\u00a0». Écrivez plutôt var {name} = ... ou window.{name} = ...',
+    notObjectHint: 'Le conteneur nomme «\u00a0{name}\u00a0», et une fois le fichier exécuté ce n’est pas un objet. Le fichier doit déclarer le questionnaire lui-même.',
+    notRunHint: 'Ce fichier porte aussi {n} script(s) que cette page n’a pas exécutés (un script chargé depuis un fichier séparé, ou un module)\u00a0: si le questionnaire y est déclaré, cette page ne peut pas le voir, et ce verdict non plus.',
+    scriptThrew: 'Un script de ce fichier a levé une erreur en s’exécutant\u00a0: {msg}. Le navigateur abandonne ce script et exécute les autres, donc la page monte quand même, mais ce script n’a rien fait de ce qu’il devait faire.',
+    engineBroken: 'Le bloc du moteur de ce fichier ne s’exécute pas',
+    crashed: 'La vérification a échoué\u00a0: ',
+
+    bad: 'Erreurs bloquantes\u00a0: {n}',
+    notPublishable: 'Cohérent, mais NON publiable\u00a0: {n} point(s) à compléter',
+    uiMissing: 'La langue «\u00a0{lang}\u00a0» n’a pas de libellés d’interface pour\u00a0: {keys}. Ceux-là sont servis en anglais.',
+    chromeTerm: 'La page autour du questionnaire nomme encore {origin} ({term}). Le moteur ne voit ni le titre de la page, ni le grand titre, ni le chapeau\u00a0: il les publiera tels quels.',
+    chromeSentinel: 'La page autour du questionnaire porte encore le texte à remplacer «\u00a0{sentinel}\u00a0», hors de l’arbre\u00a0: dans le titre, le grand titre, le chapeau, ou le message affiché quand les scripts ne s’exécutent pas. Le moteur ne lit que l’arbre\u00a0: il publiera ceci tel quel.',
+    okWarn: 'Publiable, {n} avertissement(s)',
+    ok: 'Publiable',
+    counts: '{nodes} question(s), {results} résultat(s), {paths} chemin(s)',
+
+    fileH: 'Le fichier',
+    markersOk: 'Les six marqueurs sont présents, une fois chacun, dans l’ordre.',
+    markersBad: 'Marqueurs manquants, dupliqués ou dans le désordre\u00a0: {list}. Un éditeur ou un CMS les a probablement réécrits.',
+    markersDup: 'Marqueur présent plus d’une fois\u00a0: {list}. Les limites du bloc sont ambiguës, donc ce reçu ne peut pas dire quel objet votre page monterait. Supprimez le doublon.',
+    markersOrder: 'Marqueurs dans le désordre\u00a0: {list}. Les blocs ne se lisent pas tels qu’ils sont écrits\u00a0; rien de ce qui suit ne décrit ce fichier de façon fiable.',
+    markersMissing: 'Marqueur manquant\u00a0: {list}. Si vous avez déposé un fichier entier, un éditeur l’a mangé. Si vous avez collé un fragment, collez de la ligne AI_GO-BEGIN à la ligne AI_GO-END.',
+    engineIntact: 'Moteur {v}, intact.',
+    engineChanged: 'Moteur {v}, MODIFIÉ LOCALEMENT (déclaré {d}, calculé {c}). Une mise à jour écrasera cette modification.',
+    engineNone: 'Aucun bloc de moteur dans ce fichier\u00a0: le verdict de publication ne peut pas être calculé, seulement la cohérence. Déposez votre fichier ai-go.html complet.',
+    prints: 'empreinte du contenu {hash}',
+    printsLead: 'L’empreinte est une moitié du reçu de votre relecture\u00a0: elle couvre le départ, les questions, les résultats et les liens. Le moteur l’imprime sous chaque résultat de la page réellement servie, ce qui vous permet de comparer la feuille signée par votre service juridique et la page en ligne. C’est une somme de contrôle courte, faite pour attraper une modification que personne n’a voulue, pas une signature au sens juridique\u00a0: elle n’est pas construite pour résister à quelqu’un qui entreprend d’en forger une. Ce qu’elle ne couvre pas, la ligne suivante le couvre.',
+
+    publication: 'Publication',
+    publicationLead: 'Ce que le moteur DE CE FICHIER exige avant d’afficher le contenu sur votre site. Aucun domaine n’a été donné, donc la seule vérification laissée de côté est la comparaison entre votre domaine et les domaines que le contenu déclare. Tout le reste est rapporté ici comme il le serait sur votre site.',
+    publicationLeadHost: 'Ce que le moteur DE CE FICHIER exige avant d’afficher le contenu sur {host}, le domaine que vous avez saisi. Changez-le ci-dessus et ce verdict est recalculé.',
+    publicationOk: 'Rien à compléter\u00a0: le moteur affichera ce contenu.',
+    publicationOkBlocked: 'Rien à compléter pour le moteur\u00a0: il afficherait ce contenu. Mais le moteur ne voit pas la page autour du questionnaire, et cette page y a trouvé {n} point(s) bloquant(s). Lisez le tableau ci-dessous avant de publier.',
+
+    coherence: 'Cohérence',
+    coherenceLead: 'La vérification permanente, à passer à chaque changement de contenu. Les lignes marquées d’une croix font refuser l’affichage au moteur\u00a0; les autres sont des avertissements que seule cette page voit.',
+    coherenceOk: 'Rien à signaler.',
+
+    source: 'Hygiène du texte source',
+    pathsH: 'Chemins possibles',
+    pathsLead: 'Classes d’équivalence de règles\u00a0: une question à cases à cocher donne deux branches («\u00a0au moins une\u00a0» contre «\u00a0aucune\u00a0»), parce que c’est ce que le routage distingue. C’est la liste que vous lisez à voix haute avec votre service juridique, et la liste que vous avez signée.',
+    truncated: 'Énumération INCOMPLÈTE (arbre trop grand ou trop profond)\u00a0: cette liste n’est pas fiable.',
+
+    updateH: 'Mise à jour',
+    updateLead: 'Déposez d’abord l’ancien fichier, puis le nouveau\u00a0: cette section compare les deux.',
+    updateNone: 'Déposez un second fichier pour comparer.',
+    routingSame: 'Le routage n’a pas bougé\u00a0: {n} chemins identiques.',
+    routingMoved: 'Le routage a bougé\u00a0: {a} chemin(s) ajouté(s), {r} supprimé(s). Une nouvelle relecture juridique est due.',
+    printsSame: 'Empreinte inchangée\u00a0: {h}. Ni le départ, ni une question, ni un résultat, ni un lien n’a bougé.',
+    printsMoved: 'Empreinte changée\u00a0: {ho} devient {hn}.',
+    signs: 'signature {hash}',
+    signsLead: 'La signature est l’autre moitié du reçu\u00a0: elle couvre ce sur quoi l’empreinte ne porte pas, et que le lecteur voit tout autant - l’éditeur, la relecture, l’avertissement, l’attribution, le droit cité, le nom des étapes sous la barre de progression et les libellés d’interface. Une copie qui a renommé ses étapes et changé son bouton «\u00a0Continuer\u00a0» en «\u00a0Publier sans relecture\u00a0» a rendu une empreinte identique à l’originale, caractère pour caractère. Comparez les deux, ou vous n’avez comparé que la moitié de la page.',
+    signsSame: 'Signature inchangée\u00a0: {h}. Ni les signataires ni les formulations autour des questions n’ont bougé.',
+    signsMoved: 'Signature changée\u00a0: {ho} devient {hn}. Les questions sont peut-être intactes\u00a0; qui en répond, ou la formulation autour d’elles, ne l’est pas.',
+
+    where: 'Où', msg: 'Message', level: 'Niveau',
+    reviewed: 'Relu le {date} par {by}', noReview: 'Aucune date de relecture',
+    jurisdiction: 'Droit\u00a0: {j}', legalBasis: 'Bases légales\u00a0: {b}',
+
+    line: 'ligne {n}',
+    literalNbsp: 'Espace insécable littérale ({code}). Écrivez-la plutôt avec les six caractères de l’échappement.',
+    chromeNbsp: 'Espace insécable littérale ({code}) hors du bloc de contenu, là où ni l’outil de typographie ni la règle d’échappement n’atteignent. Dans le balisage, écrivez-la plutôt avec les six caractères de l’entité HTML.',
+    quoteApostrophe: 'Apostrophe dans une chaîne écrite entre guillemets simples. Utilisez des guillemets droits doubles.',
+    markupInText: 'Un texte contient une séquence qui fermerait le bloc de script et tuerait la page\u00a0: {seq}.',
+    angleInText: 'Un texte contient un chevron. Évitez-les\u00a0: rien n’est jamais interprété comme du balisage, mais une balise ouverte casse le fichier.',
+    unreachableNode: 'Question inatteignable depuis la question de départ.',
+    unreachableResult: 'Résultat inatteignable.',
+    dangling: 'Chemin sans issue\u00a0: {path}',
+    cycle: 'Cycle détecté sur «\u00a0{id}\u00a0».',
+    badPolarity: 'Valeur attendue pour polarity\u00a0: "direct" ou "inverse".',
+    noPolarity: 'Question à cases à cocher sans polarity déclarée. Déclarez-la, pour que l’intention survive à la relecture.',
+    untranslated: 'Texte non traduit (une chaîne simple là où l’arbre déclare {langs}). Il s’affichera tel quel dans toutes les langues.',
+    defaultLangNotDeclared: 'La langue par défaut «\u00a0{lang}\u00a0» n’est pas dans langs.',
+    oldReview: 'La relecture a {days} jours.',
+    badReviewDate: 'Date de relecture illisible.',
+
+    pageTitle: 'AI_GO\u00a0: vérifier un fichier',
+    langLabel: 'Langue de cette page\u00a0:',
+    whereMarkers: 'marqueurs',
+    whereEngine: 'bloc du moteur',
+    whereScript: 'un script de ce fichier',
+    whereChrome: 'la page autour du questionnaire'
+  };
+
+  /* THE LIVE TABLE. Everything below reads S, and setLang refills it in place,
+   * so no reference goes stale when the reader switches language. */
+  var S = {}, lang = 'en';
+  /* Pure: it fills the table and touches nothing else. The page below is what
+   * carries the choice into the document, because only a page has one. */
+  function setLang(code) {
+    lang = code === 'fr' ? 'fr' : 'en';
+    var table = lang === 'fr' ? FR : EN;
+    Object.keys(EN).forEach(function (k) { S[k] = own(table, k) ? table[k] : EN[k]; });
+  }
+  /* Filled at once, so that S is a complete table from the first line that reads
+   * it. A page picks its own language further down, when it wires itself. */
+  setLang('en');
+
+  /* ------------------------------------------------------------- utilities */
+
+  var out = null, drop = null, file = null, paste = null;   // filled by the wiring below
+  var last = null;      // the analysis being displayed
+  var previous = null;  // the one before it, for the update comparison
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function fmt(str, vars) {
+    return String(str).replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] !== undefined ? String(vars[k]) : m; });
+  }
+  /* Null-tolerant on purpose: this half is also loaded outside a page, and a
+   * chrome element added here must never take the whole file down elsewhere. */
+  function setText(id, t) { var n = document.getElementById(id); if (n) n.textContent = t; }
+  function isObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function own(o, k) { return isObject(o) && Object.prototype.hasOwnProperty.call(o, k); }
+  /* THE SAME WALK AS THE ENGINE'S, RULE FOR RULE. There are two of them because
+   * this page runs before the engine of the dropped file is trusted, and two of
+   * them is exactly how they came apart: the engine bounded the depth at 32 and
+   * this one bounded nothing, so a self-referential object dropped on this page
+   * froze the browser it was dropped in, while the same object was merely
+   * reported by the page it would have been published on. Every rule below is
+   * the engine's, and the harness compares the two behaviours.
+   *   - bounded at 32: deeper than that is malformed, and a cycle is endless;
+   *   - a String OBJECT is the text it stands for, not its characters one by one;
+   *   - own property NAMES, not the enumerable ones: a non-enumerable property
+   *     is skipped by Object.keys and drawn by the renderer all the same;
+   *   - every read inside a try, because a getter can throw. */
+  function walkStrings(value, path, fn, depth) {
+    var d = depth || 0;
+    if (d > 32) return;
+    if (typeof value === 'string') { fn(value, path); return; }
+    if (!value || typeof value !== 'object') return;
+    if (Object.prototype.toString.call(value) === '[object String]') {
+      var flat;
+      try { flat = String(value); } catch (e) { return; }
+      fn(flat, path);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(function (x, i) { walkStrings(x, path + '[' + i + ']', fn, d + 1); });
+      return;
+    }
+    var names;
+    try { names = Object.getOwnPropertyNames(value); } catch (e) { return; }
+    names.forEach(function (k) {
+      var v;
+      try { v = value[k]; } catch (e) { return; }
+      walkStrings(v, path ? path + '.' + k : k, fn, d + 1);
+    });
+  }
+
+  /* ------------------------------------------------------------- markers
+   * The six markers are the whole structure of the file, so they are checked
+   * before anything else: an editor that reflowed them is the failure this
+   * form introduces, and the one an adopter cannot diagnose alone. */
+
+  var MARKS = ['AI_GO-BEGIN', 'AI_GO-CONTENT-BEGIN', 'AI_GO-CONTENT-END',
+               'AI_GO-ENGINE-BEGIN', 'AI_GO-ENGINE-END', 'AI_GO-END'];
+
+  /* A marker is a line carrying nothing but the token, except the engine one,
+   * which also carries the engine version and the hash of its own block. */
+  function markLine(text, token) {
+    var re = token === 'AI_GO-ENGINE-BEGIN'
+      ? new RegExp('^[ \\t]*' + token + ' ([0-9.]+) h:([0-9a-f]{8})[ \\t]*$', 'gm')
+      : new RegExp('^[ \\t]*' + token + '[ \\t]*$', 'gm');
+    var hits = [], m;
+    while ((m = re.exec(text))) hits.push({ index: m.index, v: m[1], h: m[2] });
+    return hits;
+  }
+  /* THREE FAILURES, NAMED SEPARATELY, because the verdict treats them
+   * differently: see markersDup / markersOrder / markersMissing above. `wrong`
+   * is kept as the union of the three, since the one-line summary in "The file"
+   * section has always printed it and a reader is used to reading it there. */
+  function markers(text) {
+    var found = MARKS.map(function (t) { return { token: t, hits: markLine(text, t) }; });
+    var missing = found.filter(function (f) { return f.hits.length === 0; }).map(function (f) { return f.token; });
+    var duplicated = found.filter(function (f) { return f.hits.length > 1; }).map(function (f) { return f.token; });
+    var disordered = [];
+    var seen = found.filter(function (f) { return f.hits.length === 1; });
+    for (var i = 1; i < seen.length; i++) {
+      if (seen[i].hits[0].index < seen[i - 1].hits[0].index) disordered.push(seen[i].token);
+    }
+    var wrong = missing.concat(duplicated).concat(disordered);
+    return { found: found, wrong: wrong, missing: missing, duplicated: duplicated,
+             disordered: disordered, ok: wrong.length === 0 };
+  }
+  /* Region between the end of the comment opened by the begin marker and the
+   * start of the comment closed by the end marker. Same rule for the content
+   * block (JavaScript comments) and the engine block (HTML comments).
+   * The RANGE, not only the text, because more than one caller needs to know
+   * what is outside the block as well as what is inside it. */
+  function range(text, beginTok, endTok, openTag, closeTag) {
+    var b = markLine(text, beginTok), e = markLine(text, endTok);
+    if (!b.length || !e.length) return null;
+    var start = text.indexOf(closeTag, b[0].index);
+    var end = text.lastIndexOf(openTag, e[0].index);
+    if (start < 0 || end < 0 || end <= start) return null;
+    return { start: start + closeTag.length, end: end };
+  }
+  function between(text, beginTok, endTok, openTag, closeTag) {
+    var r = range(text, beginTok, endTok, openTag, closeTag);
+    return r === null ? null : text.slice(r.start, r.end);
+  }
+  function contentRange(text) { return range(text, 'AI_GO-CONTENT-BEGIN', 'AI_GO-CONTENT-END', '/*', '*/'); }
+  function contentBlock(text) { return between(text, 'AI_GO-CONTENT-BEGIN', 'AI_GO-CONTENT-END', '/*', '*/'); }
+  function engineBlock(text) { return between(text, 'AI_GO-ENGINE-BEGIN', 'AI_GO-ENGINE-END', '<' + '!--', '--' + '>'); }
+
+  /* The tag names are assembled from pieces so that this page never contains
+   * the sequence that would close its own script block. */
+  var SCRIPT_OPEN = '<' + 'script', SCRIPT_CLOSE = '<' + '/' + 'script';
+  /* INSENSIBLE A LA CASSE, comme l'analyseur. inlineScripts l'est depuis qu'une
+   * balise fermante en capitales lui avait fait avaler tout le reste du fichier ;
+   * celle-ci ne l'etait pas, et le meme fichier dont les balises sont ecrites
+   * en capitales perdait son moteur entierement pendant que Chrome l'executait
+   * sans une remarque. Le nom de la balise n'est ecrit nulle part ici, dans
+   * aucune casse : l'ecrire fermerait ce bloc-ci. */
+  /* LA FORME CANONIQUE DU BLOC MOTEUR. L'empreinte dit si le MOTEUR a bouge, et
+   * le moteur, c'est tout ce qui est entre les deux marqueurs : le code, la
+   * feuille de style qui porte l'accessibilite, et les attributs de la balise
+   * qui les porte. Elle a d'abord couvert le bloc brut, et ecrire la fermeture
+   * autrement -- trois formes qu'un navigateur ferme pareil et qu'un systeme de
+   * publication reecrit sans prevenir -- la deplacait sur un moteur identique.
+   * Elle a ensuite ete reduite au seul code, et treize mille caracteres de
+   * feuille de style sont sortis du controle : la correction etait pire que le
+   * defaut. On normalise donc ce qui s'ecrit de plusieurs facons, et rien
+   * d'autre. */
+  function canonicalBlock(block) {
+    return String(block)
+      .replace(new RegExp(SCRIPT_OPEN + '(?![A-Za-z0-9])', 'gi'), SCRIPT_OPEN)
+      .replace(new RegExp(SCRIPT_CLOSE + '(?![A-Za-z0-9])[^>]*>', 'gi'), SCRIPT_CLOSE + '>');
+  }
+  function innerScript(block) {
+    var open = new RegExp(SCRIPT_OPEN + '(?![A-Za-z0-9])', 'gi'), last = -1, m;
+    while ((m = open.exec(block))) last = m.index;
+    if (last < 0) return null;
+    var j = block.indexOf('>', last);
+    var close = new RegExp(SCRIPT_CLOSE + '(?![A-Za-z0-9])', 'gi'), k = -1;
+    while ((m = close.exec(block))) k = m.index;
+    return (j < 0 || k < j) ? null : block.slice(j + 1, k);
+  }
+  /* L'EMPREINTE DU BLOC MOTEUR, ET RIEN D'AUTRE. Elle dit a qui ouvre ce fichier
+   * si le moteur a bouge depuis la ligne qui l'annonce ; elle ne signe pas un
+   * contenu et ne pretend pas le faire. Trente-deux bits suffisent a cet office
+   * et pas a un autre. Le brassage etait une somme lineaire, ou l'on construit
+   * une collision au crayon : il ne l'est plus, pour qu'une retouche du moteur
+   * ne se cache pas derriere une valeur choisie. Meme construction que hash()
+   * dans le moteur, tronquee a huit caracteres, la ligne de marqueur en portant
+   * huit depuis l'origine. */
+  function hashOf(src) {
+    var s = String(src), a = 0x811c9dc5, b = 0x9e3779b9, i, c;
+    function mul32(x, y) {
+      var xl = x & 0xffff, xh = x >>> 16;
+      return (((xl * y) + (((xh * y) & 0xffff) << 16)) | 0);
+    }
+    for (i = 0; i < s.length; i++) {
+      c = s.charCodeAt(i);
+      a = mul32(a ^ c, 16777619);
+      b = mul32(b ^ (c + i), 2246822519);
+      b = (b << 13) | (b >>> 19);
+    }
+    a = a ^ (a >>> 16); a = mul32(a, 0x85ebca6b);
+    a = a ^ (a >>> 13); a = mul32(a, 0xc2b2ae35);
+    a = (a ^ (a >>> 16) ^ b) >>> 0;
+    return ('00000000' + a.toString(16)).slice(-8);
+  }
+
+  /* ------------------------------------------------------------ evaluation
+   * The try/catch MUST wrap the evaluation itself: a syntax error is thrown at
+   * the call site, and a page that goes blank leaves the console as its only
+   * signal, which the audience of this tool does not read. */
+  function evaluate(source, trailer) {
+    try { return { value: new Function('var module;\n' + source + '\n' + trailer)() }; }
+    catch (e) { return { error: e }; }
+  }
+
+  /* ------------------------------------------------- what the file executes
+   * EVERY SCRIPT A BROWSER WOULD RUN, IN DOCUMENT ORDER. The receipt has to
+   * describe the page that is served, and the page that is served is a FILE,
+   * not the text between two markers: a one-line script placed after the
+   * content block, rewriting the target of a single answer, removed a whole
+   * question from the served questionnaire while this page went on certifying
+   * five paths and printing a fingerprint for a tree nobody would ever see.
+   *
+   * Skipped, and why:
+   *   - a script that names another file to load: this page reads the one
+   *     file it was given and fetches nothing, by design.
+   *   - type=module : module scope is not the global scope, and an import
+   *     statement inside a wrapper is a syntax error that would swallow the
+   *     whole file. Both are counted and named in notRunHint, never silent.
+   *   - the ENGINE block: loadEngine() already evaluates it and hands back
+   *     AI_GO, it never assigns the content variable (it READS window[name],
+   *     after every script has run), and running it a second time would install
+   *     a second set of listeners on the page doing the checking. Its own
+   *     integrity is reported separately, by hash, two sections below. */
+  var JS_TYPE_RE = /^(text|application)\/(x-)?(java|ecma)script$/;
+  function engineRange(text) {
+    var b = markLine(text, 'AI_GO-ENGINE-BEGIN'), e = markLine(text, 'AI_GO-ENGINE-END');
+    if (!b.length || !e.length) return null;
+    return { start: b[0].index, end: e[e.length - 1].index };
+  }
+  /* WHERE THE COMMENTS ARE. A browser runs nothing between a comment opener and
+   * its closer -- the two sequences are spelled in pieces below, because this
+   * file refuses to carry either of them whole. This page used to run those
+   * scripts, so a version left behind under a comment, with an old tree in it,
+   * decided the verdict for a page that would never execute a line of it. */
+  function commentRanges(text) {
+    /* HORS DES SCRIPTS, comme le parseur. A l'interieur d'un script, un
+     * ouvre-commentaire n'est qu'une suite de caracteres dans une chaine, et le
+     * navigateur ne s'y arrete pas ; cette page s'y arretait, prenait le
+     * ferme-commentaire suivant -- celui du pied de page de l'institution, deux
+     * cents lignes plus bas -- et classait comme commentaire tout ce qu'il y
+     * avait entre les deux. Les scripts ainsi perdus n'etaient meme pas
+     * comptes, notRunNote les excluant, si bien que le recu decrivait un arbre
+     * que le navigateur ne sert pas, sans un mot d'avertissement. On saute donc
+     * les corps de script avant de chercher les commentaires. */
+    var open = new RegExp(SCRIPT_OPEN + '(\\s[^>]*)?>', 'gi');
+    var closeRe = new RegExp(SCRIPT_CLOSE, 'i');
+    var masked = '', at = 0, m, rest, found, end;
+    while ((m = open.exec(text))) {
+      rest = text.slice(open.lastIndex);
+      found = closeRe.exec(rest);
+      end = found ? open.lastIndex + found.index : text.length;
+      /* Le corps devient des espaces : les index ne bougent pas d'un caractere,
+       * et c'est sur ces index que inComment() decide. */
+      masked += text.slice(at, open.lastIndex) + text.slice(open.lastIndex, end).replace(/[^\n]/g, ' ');
+      at = end;
+      open.lastIndex = end;
+    }
+    masked += text.slice(at);
+    var re = new RegExp('<' + '!--[\\s\\S]*?--' + '>', 'g'), out = [], c;
+    while ((c = re.exec(masked))) out.push([c.index, c.index + c[0].length]);
+    return out;
+  }
+  function inComment(spans, i) {
+    for (var k = 0; k < spans.length; k++) if (i > spans[k][0] && i < spans[k][1]) return true;
+    return false;
+  }
+  function inlineScripts(text) {
+    var open = new RegExp(SCRIPT_OPEN + '(\\s[^>]*)?>', 'gi');
+    /* CASE-INSENSITIVE, like the parser. A closing tag typed in capitals ended
+     * nothing here, so the whole rest of the file was swallowed as one script
+     * body and the file was reported unreadable while the browser ran it without
+     * a murmur. The tag is not spelled out anywhere in this file, in either
+     * case: writing it in a comment closes this very script in the browser, and
+     * that is how the first version of this comment took the page down. */
+    var closeRe = new RegExp(SCRIPT_CLOSE, 'i');
+    var eng = engineRange(text), comments = commentRanges(text), list = [], m;
+    while ((m = open.exec(text))) {
+      var attrs = m[1] || '';
+      var rest = text.slice(open.lastIndex);
+      var found = closeRe.exec(rest);
+      var close = found ? open.lastIndex + found.index : -1;
+      var source = text.slice(open.lastIndex, close < 0 ? text.length : close);
+      /* Never scan a body for a nested opening tag: a browser ends the script at
+       * the first closing sequence and so does this. */
+      if (close >= 0) open.lastIndex = close;
+      var skip = null;
+      if (/\ssrc\s*=/i.test(attrs)) skip = 'src';
+      else {
+        var t = /\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+        var type = t ? String(t[1] !== undefined ? t[1] : t[2] !== undefined ? t[2] : t[3]).trim().toLowerCase() : '';
+        if (type && !JS_TYPE_RE.test(type)) skip = type;
+      }
+      if (eng && m.index >= eng.start && m.index <= eng.end) skip = 'engine';
+      if (inComment(comments, m.index)) skip = 'comment';
+      list.push({ index: m.index, source: source, skip: skip });
+    }
+    return list;
+  }
+
+  /* THE PAGE'S GLOBAL OBJECT, BORROWED FOR THE LENGTH OF ONE CHECK.
+   * A plain object stands in for window. The file's scripts run inside a `with`
+   * bound to it, so a top-level `var` and a bare assignment land on it, exactly
+   * as they land on window in a browser, while a `let`, a `const` and a `class`
+   * stay in the block they were written in and never reach it, exactly as they
+   * never reach window. Nothing is read off the source any more: the question
+   * "would the engine find this on window" is asked of the language, which is
+   * the only thing that knows the answer.
+   *
+   * TWO THINGS THIS PAGE OWES ITS USER, both bought by the Proxy below:
+   *   - its own window is not polluted. Without the Proxy, an undeclared bare
+   *     assignment in the dropped file walks up the scope chain and lands on
+   *     the real global object of THIS page.
+   *   - two checks in a row do not contaminate each other, because the object
+   *     is built fresh here and dropped when the check ends.
+   * The `has` trap is what closes the scope: it claims every name, so no
+   * identifier ever escapes to the real global. `get` then falls back to the
+   * host global for the names the sandbox does not own, so Math, JSON, Date and
+   * the rest of the language still work inside the file being checked, while
+   * every WRITE stays in the sandbox. Browsers old enough to lack Proxy keep
+   * the plain object, where the seeded name below is still enough to read the
+   * questionnaire; only the pollution guarantee is weaker there. */
+  var HOST_GLOBAL = typeof globalThis !== 'undefined' ? globalThis
+    : (typeof window !== 'undefined' ? window : null);
+  var SEEN = '__aigo_seen__', THREW = '__aigo_threw__', HANDLERS = '__aigo_ready__';
+  function sandbox(name) {
+    var g = {};
+    /* window, and the aliases a content file writes it under. */
+    var noop = function () {};
+    g.window = g; g.self = g; g.globalThis = g; g.top = g; g.parent = g;
+    /* PRESENT ET INERTE, ET NON ABSENT. `document` valait `undefined`, ce qui
+     * ne rend pas un fichier plus sur : cela change le programme execute. Une
+     * modification conditionnee par `typeof document !== "undefined"`
+     * disparaissait du controle sans disparaitre de la page, et
+     * `document.addEventListener("DOMContentLoaded", ...)` -- l'idiome le plus
+     * courant pour renseigner une date avant le montage -- y levait une erreur
+     * que cette page attribuait au fichier. Ce document-ci ne touche a rien :
+     * il enregistre les gestionnaires et rend vide tout ce qu'on lui demande. */
+    var inert = function () {
+      return { nodeType: 1, style: {}, dataset: {}, children: [], childNodes: [],
+        appendChild: function (c) { return c; }, removeChild: function (c) { return c; },
+        insertBefore: function (c) { return c; }, setAttribute: noop, removeAttribute: noop,
+        getAttribute: function () { return null; }, addEventListener: noop,
+        removeEventListener: noop, querySelector: function () { return null; },
+        querySelectorAll: function () { return []; }, textContent: '', innerHTML: '',
+        classList: { add: noop, remove: noop, toggle: noop, contains: function () { return false; } } };
+    };
+    g.document = {
+      readyState: 'loading', title: '', characterSet: 'UTF-8',
+      documentElement: inert(), body: inert(), head: inert(),
+      createElement: inert, createTextNode: function () { return { textContent: '' }; },
+      createDocumentFragment: inert,
+      getElementById: function () { return null; },
+      querySelector: function () { return null; },
+      querySelectorAll: function () { return []; },
+      getElementsByTagName: function () { return []; },
+      getElementsByClassName: function () { return []; },
+      write: noop, writeln: noop, open: noop, close: noop,
+      addEventListener: function (type, fn) { g.addEventListener(type, fn); },
+      removeEventListener: function (type, fn) { g.removeEventListener(type, fn); }
+    };
+    g.location = undefined; g.history = undefined;
+    g.navigator = undefined; g.localStorage = undefined; g.sessionStorage = undefined;
+    g.fetch = undefined; g.XMLHttpRequest = undefined;
+    g.setTimeout = function () { return 0; }; g.setInterval = function () { return 0; };
+    g.clearTimeout = noop; g.clearInterval = noop; g.requestAnimationFrame = function () { return 0; };
+    /* WHAT THE PAGE RUNS AFTER PARSING. A handler on DOMContentLoaded or load
+     * runs in the browser before anything is mounted, and it was dropped here:
+     * a file that put its review date right in such a handler was called
+     * publishable by this page and refused by the engine on the visitor's
+     * screen. They are collected and run below, in the order they were
+     * registered, which is the order the browser uses. */
+    g[HANDLERS] = [];
+    /* DOMContentLoaded SEULEMENT. Le moteur monte sur DOMContentLoaded et garde
+     * alors sa copie de l'arbre : ce qu'un gestionnaire `load` change arrive
+     * apres, et ne change plus rien a ce que le moteur a lu. Les rejouer ici
+     * faisait dire a cette page l'inverse de ce que l'ecran montre -- une date
+     * corrigee sur `load` la rendait « publiable » quand le moteur refusait, et
+     * une date cassee sur `load` la faisait refuser quand le moteur affichait. */
+    g.addEventListener = function (type, fn) {
+      if (typeof fn === 'function' && type === 'DOMContentLoaded') g[HANDLERS].push(fn);
+    };
+    g.removeEventListener = function (type, fn) {
+      var i = g[HANDLERS].indexOf(fn);
+      if (i >= 0) g[HANDLERS].splice(i, 1);
+    };
+    g.dispatchEvent = noop;
+    g.alert = noop; g.confirm = noop; g.prompt = noop; g.open = noop; g.close = noop;
+    g.console = { log: noop, warn: noop, error: noop, info: noop, debug: noop };
+    g[SEEN] = undefined;
+    g[THREW] = [];
+    g[HANDLERS] = g[HANDLERS] || [];
+    /* LAST, so the container's name always wins: the file declares it, and this
+     * page is here to read exactly that. */
+    g[name] = undefined;
+    return g;
+  }
+  function scopeOf(g) {
+    if (typeof Proxy !== 'function') return g;
+    return new Proxy(g, {
+      has: function () { return true; },
+      get: function (t, k) {
+        /* The `with` statement asks for this one before anything else; an object
+         * here would filter names out of the scope, which is the opposite of
+         * what the `has` trap above is for. */
+        if (typeof Symbol !== 'undefined' && k === Symbol.unscopables) return undefined;
+        if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+        return HOST_GLOBAL ? HOST_GLOBAL[k] : undefined;
+      },
+      set: function (t, k, v) { t[k] = v; return true; }
+    });
+  }
+  /* One script, wrapped. The block keeps a `let` where the language keeps it.
+   * The probe on the last line records the value the name held INSIDE that
+   * block, which is how a lexical declaration is told apart from a name the
+   * file never declares at all: both leave the global object untouched, and
+   * only one of them deserves the sentence about window. */
+  function wrap(source, name) {
+    return 'try {\n{\n' + source +
+      '\n;try { if (typeof ' + name + ' !== "undefined") ' + SEEN + ' = ' + name + '; } catch (__aigo_e__) {}\n' +
+      '}\n} catch (__aigo_e__) { ' + THREW + '.push(__aigo_e__); }\n';
+  }
+  function runFile(text, name) {
+    var all = inlineScripts(text), ran = [], skipped = [];
+    all.forEach(function (s) { (s.skip ? skipped : ran).push(s); });
+    var g = sandbox(name), scope = scopeOf(g), fatal = null;
+    var body = 'with (__aigo_scope__) {\n' +
+      ran.map(function (s) { return wrap(s.source, name); }).join('') + '}\n';
+    var fn = null;
+    /* CALLED ON THE SANDBOX, never bare. At the top level of a classic script
+     * `this` is window, so `this.AI_GO_CONTENT = {...}` declares the tree -- and
+     * a bare call here would have made `this` the REAL global of this page,
+     * which both loses the declaration and writes on the page doing the
+     * checking. Two bugs in one character. */
+    try { fn = new Function('__aigo_scope__', body); } catch (e) { fatal = e; }
+    if (fn) { try { fn.call(scope, scope); } catch (e) { g[THREW].push(e); } }
+    else {
+      /* One script did not parse. A browser drops THAT script and runs the
+       * others, so the file is judged on what would actually have executed
+       * rather than on nothing at all, and the syntax error is still reported. */
+      ran.forEach(function (s) {
+        var one = null;
+        try { one = new Function('__aigo_scope__', 'with (__aigo_scope__) {\n' + wrap(s.source, name) + '}\n'); }
+        catch (e) { g[THREW].push(e); return; }
+        try { one.call(scope, scope); } catch (e) { g[THREW].push(e); }
+      });
+    }
+    /* Then what the browser does when parsing ends. A handler registered by one
+     * of those scripts may still rewrite the tree, and on the visitor's screen
+     * it does so before a single question is drawn. */
+    var ready = g[HANDLERS].slice();
+    g[HANDLERS].length = 0;
+    ready.forEach(function (h) {
+      try {
+        g.document.readyState = 'interactive';
+        h.call(scope, { type: 'DOMContentLoaded' });
+      } catch (e) { g[THREW].push(e); }
+    });
+    if (g[name] !== undefined) g[SEEN] = g[name];
+    return { global: g, value: g[name], inner: g[SEEN], errors: g[THREW],
+             fatal: fatal, ran: ran.length, skipped: skipped, ready: ready.length };
+  }
+  /* Scripts we did not run and that an adopter could reasonably have put the
+   * questionnaire in. The engine block is not one of them: it is skipped on
+   * purpose and reported on its own. */
+  function notRunNote(run) {
+    var n = run.skipped.filter(function (s) {
+      return s.skip !== 'engine' && s.skip !== 'comment';
+    }).length;
+    return n ? ' ' + fmt(S.notRunHint, { n: n }) : '';
+  }
+
+  /* WHICH OBJECT THE PAGE ACTUALLY MOUNTS.
+   * The engine mounts window[name], where name is the value of the data-ai-go
+   * attribute on the container. This page used to take the FIRST
+   * `var|let|const X = {` it could find instead, which is a different object the
+   * moment a file declares two: a settings object placed above the tree, or a
+   * second tree left in the file after a review. The receipt, the enumerated
+   * paths and the fingerprint then described an object no visitor would ever
+   * see, and the page went out certified. So the attribute is read, and THAT
+   * name is what gets read off the sandbox global once the file has run.
+   *
+   * Ambiguity is refused, never guessed: no container at all, or two containers
+   * naming two different variables, both stop here with a sentence naming the
+   * fix. A page carrying two questionnaires is checked one file at a time. */
+  var NAME_RE = /^[A-Za-z_$][\w$]*$/;
+  /* The attribute is read off the MARKUP, never off the whole file. A container
+   * left behind in an HTML comment, and the same string quoted inside a script,
+   * both used to count as containers: the first made a file with one live
+   * container unjudgeable, and the second named a backslash as the variable to
+   * mount. Scripts, styles and comments are removed the same way chromeTerms
+   * removes them, which is the closest this page gets to what a browser sees
+   * when it runs querySelectorAll('[data-ai-go]'). */
+  function markupOnly(text) {
+    /* LA FERMETURE S'ECRIT DE PLUSIEURS FACONS, et un navigateur les ferme
+     * toutes : une espace avant le chevron, une barre oblique, un saut de ligne.
+     * Exiger la forme courte faisait echouer le retrait, si bien que le code du
+     * moteur devenait du « texte visible » et tombait sous les controles ecrits
+     * pour ce qu'un lecteur lit. */
+    var strip = function (t, tag) {
+      return t.replace(new RegExp('<' + tag + '[\\s\\S]*?<\\/' + tag + '[^>]*>', 'gi'), ' ');
+    };
+    return strip(strip(String(text), 'scr' + 'ipt'), 'sty' + 'le')
+      .replace(new RegExp('<' + '!--[\\s\\S]*?--' + '>', 'g'), ' ');
+  }
+  /* THE VALUE THE BROWSER WOULD HAND THE ENGINE, character for character. The
+   * engine calls getAttribute, which returns the attribute with its character
+   * references resolved and its spaces intact. This page read the raw markup and
+   * then trimmed it, so the two disagreed at both ends: `data-ai-go="X "` was
+   * called publishable here and mounted nothing there, and `data-ai-go="A&#95;B"`
+   * was called unreadable here and mounted perfectly there. Neither verdict was
+   * about the file the visitor gets. */
+  var NAMED_REFS = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+  function unescapeAttr(v) {
+    return String(v).replace(/&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g,
+      function (whole, body) {
+        if (body.charAt(0) === '#') {
+          var code = body.charAt(1) === 'x' || body.charAt(1) === 'X'
+            ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+          if (!isFinite(code) || code < 0 || code > 0x10ffff) return whole;
+          try { return String.fromCodePoint ? String.fromCodePoint(code) : String.fromCharCode(code); }
+          catch (e) { return whole; }
+        }
+        return Object.prototype.hasOwnProperty.call(NAMED_REFS, body) ? NAMED_REFS[body] : whole;
+      });
+  }
+  function mountNames(text) {
+    var re = /<[a-z][\w-]*\b[^>]*\sdata-ai-go\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+    var seen = [], m, v, markup = markupOnly(text);
+    while ((m = re.exec(markup))) {
+      v = unescapeAttr(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3] || '');
+      if (v && seen.indexOf(v) < 0) seen.push(v);
+    }
+    return seen;
+  }
+  function loadContent(text) {
+    var names = mountNames(text);
+    if (!names.length) return { missing: true, head: S.notMountable, hint: S.noContainerHint };
+    if (names.length > 1) return { missing: true, head: S.notMountable, hint: fmt(S.twoContainersHint, { names: names.join(', ') }) };
+    var name = names[0];
+    /* The name is spliced into the wrapper this page is about to evaluate, so it
+     * is checked as an identifier first and never as a fragment of code. */
+    if (!NAME_RE.test(name)) return { missing: true, head: S.notMountable, hint: fmt(S.badNameHint, { name: name }) };
+    var run = runFile(text, name);
+    /* The object the page would mount, and nothing else, decides. A script that
+     * threw on the way does not change that: a browser drops it and mounts all
+     * the same, so the throw is carried out as a warning and not as a refusal. */
+    if (isObject(run.value)) return { value: run.value, name: name, run: run };
+    if (run.errors.length) return { error: run.errors[0], name: name, run: run };
+    if (run.value !== undefined) return { missing: true, hint: fmt(S.notObjectHint, { name: name }), run: run };
+    /* Visible to the file, absent from the global object: that is a `let`, a
+     * `const` or a `class`, and the language just said so. */
+    if (run.inner !== undefined) return { missing: true, head: S.notMountable, hint: fmt(S.notGlobalHint, { name: name }), run: run };
+    return { missing: true, hint: fmt(S.notDeclaredHint, { name: name }) + notRunNote(run), run: run };
+  }
+  function loadEngine(text) {
+    var block = engineBlock(text);
+    if (block === null) return { missing: true };
+    var js = innerScript(block);
+    if (js === null) return { missing: true };
+    var r = evaluate(js, 'return AI_GO;');
+    r.declared = markLine(text, 'AI_GO-ENGINE-BEGIN')[0];
+    /* SUR LE MOTEUR, ET NON SUR L'EMBALLAGE QUI LE PORTE. L'empreinte couvrait
+     * le bloc entier, balise ouvrante et balise fermante comprises. Ecrire la
+     * fermeture autrement -- avec une espace, une barre oblique, un saut de
+     * ligne, toutes formes qu'un navigateur ferme de la meme facon et qu'un CMS
+     * reecrit sans prevenir -- suffisait a faire annoncer « le moteur a ete
+     * modifie » sur un moteur identique octet pour octet. L'empreinte dit si le
+     * MOTEUR a bouge : c'est le moteur qu'elle lit. */
+    r.computed = hashOf(canonicalBlock(block));
+    return r;
+  }
+
+  /* ------------------------------------------------- path enumeration
+   * Rule equivalence classes, not checkbox combinations: a question with six
+   * boxes yields two branches, because that is what the routing distinguishes.
+   * Enumerating real combinations would give hundreds of thousands of paths for
+   * a single terminus, which is a report nobody reads. */
+
+  /* PATH_DEPTH bounds the recursion below. It was 2000, deep enough to overflow
+   * the default stack of some platforms while a chain that long is already far
+   * past anything a questionnaire does; the truncated flag says so either way. */
+  var PATH_LIMIT = 5000, PATH_DEPTH = 500;
+
+  function branchesOf(node) {
+    if (node.type === 'multi') {
+      var rule = isObject(node.next) ? node.next : {};
+      return [{ choice: 'any', to: rule.ifAny, result: rule.ifAnyResult },
+              { choice: 'none', to: rule.else, result: rule.elseResult }];
+    }
+    return arr(node.answers).map(function (a) { return { choice: a && a.value, to: a && a.to, result: a && a.result }; });
+  }
+  function paths(tree) {
+    var list = [];
+    list.truncated = false;
+    if (!tree || !own(tree.nodes, tree.start)) return list;
+    (function walk(nodeId, trail, seen) {
+      /* LE DRAPEAU D'ABORD. Atteindre PATH_DEPTH retournait sans rien pousser,
+       * si bien que `list` restait vide et que la borne des 5000 chemins ne
+       * mordait plus jamais : un arbre conforme de 502 questions envoyait
+       * cette marche parcourir 2^501 branches, et la page ne rendait plus
+       * jamais la main. Une fois le drapeau pose, les appels encore en pile
+       * rendent la main tout de suite, et le verdict dit que l'enumeration
+       * est incomplete au lieu de ne rien dire du tout. */
+      if (list.truncated || list.length > PATH_LIMIT || trail.length > PATH_DEPTH) { list.truncated = true; return; }
+      var node = own(tree.nodes, nodeId) ? tree.nodes[nodeId] : null;
+      if (!node) return;
+      if (seen.indexOf(nodeId) >= 0) { list.push({ steps: trail.slice(), result: null, cycle: nodeId }); return; }
+      var seenHere = seen.concat([nodeId]);
+      branchesOf(node).forEach(function (b) {
+        var extended = trail.concat([{ node: nodeId, choice: b.choice }]);
+        /* A branch with no target, and a branch whose target does not exist,
+         * are the same thing for a reader: a Continue button that leads
+         * nowhere. Both are enumerated as dead ends rather than dropped, or a
+         * broken tree would quietly report fewer paths instead of an error. */
+        if (b.result && own(tree.results, b.result)) list.push({ steps: extended, result: b.result });
+        else if (b.to && own(tree.nodes, b.to)) walk(b.to, extended, seenHere);
+        else list.push({ steps: extended, result: null, dangling: true });
+      });
+    })(tree.start, [], []);
+    return list;
+  }
+  /* Stable textual form of a path: the comparison key between versions and the
+   * format of a frozen oracle file. Do not change it. */
+  function pathKey(p) {
+    return p.steps.map(function (s) { return s.node + '=' + s.choice; }).join(' → ') +
+           ' ⇒ ' + (p.result || (p.cycle ? 'CYCLE:' + p.cycle : 'IMPASSE'));
+  }
+  function routingDiff(a, b) {
+    var A = {}, B = {}, pa = paths(a), pb = paths(b);
+    pa.forEach(function (p) { A[pathKey(p)] = true; });
+    pb.forEach(function (p) { B[pathKey(p)] = true; });
+    return {
+      removed: Object.keys(A).filter(function (k) { return !B[k]; }),
+      added: Object.keys(B).filter(function (k) { return !A[k]; }),
+      unchanged: Object.keys(A).filter(function (k) { return B[k]; }).length,
+      /* A truncated enumeration invalidates the comparison: saying "0 path
+       * added" about a tree whose routing changed beyond the limit would be
+       * worse than saying nothing. */
+      truncated: pa.truncated || pb.truncated
+    };
+  }
+
+  /* ------------------------------------------- what only this page reports */
+
+  /* `engine` is the engine of the DROPPED file, and it is optional: the harness
+   * and the paste path call this with a tree and its paths and nothing else.
+   * What it is here for is reviewMaxDays, below. */
+  function extras(tree, all, engine) {
+    var issues = [];
+    function add(level, where, key, vars) { issues.push({ level: level, where: where, message: fmt(S[key], vars) }); }
+    var langs = arr(tree.langs);
+
+    if (tree.defaultLang && langs.indexOf(tree.defaultLang) < 0) add('error', 'defaultLang', 'defaultLangNotDeclared', { lang: tree.defaultLang });
+
+    var reachedNodes = {}, reachedResults = {};
+    all.forEach(function (p) {
+      p.steps.forEach(function (st) { reachedNodes[st.node] = true; });
+      if (p.result) reachedResults[p.result] = true;
+      if (p.dangling) add('error', 'paths', 'dangling', { path: pathKey(p) });
+      if (p.cycle) add('error', 'paths', 'cycle', { id: p.cycle });
+    });
+    Object.keys(tree.nodes || {}).forEach(function (id) { if (!reachedNodes[id]) add('warn', 'nodes.' + id, 'unreachableNode'); });
+    Object.keys(tree.results || {}).forEach(function (id) { if (!reachedResults[id]) add('warn', 'results.' + id, 'unreachableResult'); });
+
+    Object.keys(tree.nodes || {}).forEach(function (id) {
+      var n = tree.nodes[id];
+      if (!isObject(n) || n.type !== 'multi') return;
+      if (n.polarity === undefined) add('warn', 'nodes.' + id, 'noPolarity');
+      else if (n.polarity !== 'direct' && n.polarity !== 'inverse') add('error', 'nodes.' + id + '.polarity', 'badPolarity');
+    });
+
+    /* A bare string displays identically in every language: degraded, not
+     * broken, so the engine tolerates it and this page names it. A tree that
+     * declares ONE language is written in bare strings on purpose, so the
+     * warning only fires from the second declared language on. */
+    /* EVERY FIELD THE ENGINE DRAWS, not the five that were easy to reach. It used
+     * to walk one level and look at five names, which covered six of the fourteen
+     * texts a reader is shown: an answer label, an answer detail, a checkbox
+     * label, a solution, its custom label, an alert, a forbidden line and the
+     * attribution note were all silent. A tree half written in French therefore
+     * got "Publishable, no warning", and served an English reader the label
+     * "Recommended solution" above a French sentence. The recommended solution is
+     * the one a legal service signs, so it was the worst of the eight to miss. */
+    var DRAWN = ['title', 'help', 'summary', 'name', 'label', 'detail', 'note'];
+    function bare(path, val) {
+      if (typeof val === 'string') add('warn', path, 'untranslated', { langs: langs.join(', ') });
+    }
+    function drawnIn(path, node) {
+      if (!isObject(node)) return;
+      DRAWN.forEach(function (f) { bare(path + '.' + f, node[f]); });
+      /* solution and alert are { text, label } or a string; forbidden is a list. */
+      ['solution', 'alert'].forEach(function (f) {
+        var v = node[f];
+        if (typeof v === 'string') { bare(path + '.' + f, v); return; }
+        if (!isObject(v)) return;
+        bare(path + '.' + f + '.text', v.text);
+        if (v.label !== 'legal' && v.label !== 'plain') bare(path + '.' + f + '.label', v.label);
+      });
+      if (Array.isArray(node.forbidden)) node.forbidden.forEach(function (x, i) {
+        bare(path + '.forbidden[' + i + ']', x);
+      });
+      ['answers', 'options'].forEach(function (list) {
+        if (!Array.isArray(node[list])) return;
+        node[list].forEach(function (x, i) { drawnIn(path + '.' + list + '[' + i + ']', x); });
+      });
+    }
+    if (langs.length > 1) {
+      ['nodes', 'results', 'steps', 'links'].forEach(function (top) {
+        var v = tree[top];
+        if (!v) return;
+        (Array.isArray(v) ? v.map(function (x, i) { return [top + '[' + i + ']', x]; })
+                          : Object.keys(v).map(function (k) { return [top + '.' + k, v[k]]; }))
+          .forEach(function (pair) { drawnIn(pair[0], pair[1]); });
+      });
+      bare('disclaimer', tree.disclaimer);
+      if (isObject(tree.derivedFrom)) bare('derivedFrom.note', tree.derivedFrom.note);
+    }
+
+    /* THE BOUND IS THE ENGINE'S, NEVER A SECOND COPY OF IT. This page carried
+     * its own 365 while the engine of the same file banners at
+     * POLICY.reviewMaxDays, 548: for 183 days the receipt an institution filed
+     * said the review was stale and the page it described said nothing at all,
+     * and neither of the two was wrong about its own number. Without an engine
+     * there is no policy to read, so the age is not judged rather than judged
+     * against a number invented here; the verdict already says, in that case,
+     * that only coherence was checked. */
+    var maxDays = engine && engine.POLICY ? engine.POLICY.reviewMaxDays : null;
+    if (tree.review && tree.review.date) {
+      /* ET LE CALCUL AUSSI EST CELUI DU MOTEUR. La borne venait d'ici, mais
+       * l'age etait recompte sur place, en fraction de jour, puis arrondi pour
+       * l'affichage : pendant la journee du 548e jour le recu disait « 549
+       * jours » et la page qu'il decrit ne montrait aucune banniere. Une
+       * seconde facon de compter est une seconde politique. reviewAgeDays
+       * plancher depuis minuit UTC ; on lui demande, et on rend son entier. */
+      var age = engine && typeof engine.reviewAgeDays === 'function'
+        ? engine.reviewAgeDays(tree)
+        : Math.floor((Date.now() - Date.parse(String(tree.review.date).trim().split(/[T ]/)[0] + 'T00:00:00Z')) / 86400000);
+      if (age === null || isNaN(age)) add('warn', 'review.date', 'badReviewDate');
+      else if (typeof maxDays === 'number' && age > maxDays) add('warn', 'review.date', 'oldReview', { days: age });
+    }
+
+    /* Proper to this form: three sequences in a content string close the script
+     * block and kill the page before the engine ever runs. */
+    var killers = [SCRIPT_CLOSE, SCRIPT_OPEN, '<' + '!--'];
+    walkStrings(tree, '', function (str, path) {
+      killers.forEach(function (seq) { if (str.indexOf(seq) >= 0) add('error', path, 'markupInText', { seq: seq }); });
+      if (str.indexOf('<') >= 0 && !killers.some(function (seq) { return str.indexOf(seq) >= 0; })) add('warn', path, 'angleInText');
+    });
+    return issues;
+  }
+
+  /* Checks that only make sense on the SOURCE TEXT, never on the parsed object:
+   * once parsed, an escaped and a literal non-breaking space are the same
+   * character. Scoped to the CONTENT block: the engine writes its own strings
+   * in single quotes on purpose, and it is not the adopter's to edit. Line
+   * numbers are those of the whole file. */
+  function lintContent(text, tree) {
+    var issues = [];
+    /* The engine sets `lang` on its own container, never on the page. A file
+     * whose questions were translated but whose <html lang> was left as it
+     * shipped makes a screen reader read French with an English voice, and
+     * nothing else in the chain notices. */
+    /* THE LANGUAGE THE ENGINE WILL ACTUALLY MOUNT IN, by the engine's own rule:
+     * `data-lang` on the container if it is there, else the page language when
+     * the tree declares it, else `defaultLang`. Comparing <html lang> to
+     * `defaultLang` alone answered the wrong question twice over: a container
+     * carrying data-lang="en" on a French page mounts in English and was not
+     * reported, while a page and a container both saying fr, over a tree whose
+     * defaultLang is en, mounts in French and was reported as wrong. The only
+     * case where the voice really lies was the one that went unreported. */
+    var page = /<html[^>]*\blang\s*=\s*["']([\w-]+)["']/i.exec(text);
+    var pageTag = page ? page[1].toLowerCase().split(/[-_]/)[0] : null;
+    var asked = /<[a-z][\w-]*\b[^>]*\sdata-ai-go\b[^>]*>/i.exec(text);
+    var forced = asked ? /\sdata-lang\s*=\s*["']([\w-]+)["']/i.exec(asked[0]) : null;
+    var declared = (tree && Array.isArray(tree.langs) ? tree.langs : []).map(function (l) {
+      return String(l).toLowerCase().split(/[-_]/)[0];
+    });
+    var fallback = tree && (tree.defaultLang || declared[0]);
+    var mounted = forced ? forced[1].toLowerCase().split(/[-_]/)[0]
+      : (pageTag && declared.indexOf(pageTag) >= 0 ? pageTag
+        : (fallback ? String(fallback).toLowerCase().split(/[-_]/)[0] : null));
+    if (pageTag && mounted && pageTag !== mounted) {
+      issues.push({ level: 'warn', where: forced ? 'data-lang' : '<html lang>',
+        message: fmt(S.pageLang, { page: page[1], tree: mounted }) });
+    }
+    /* And the language it will mount in has to be one the tree actually carries.
+     * A container left on the language it shipped with, over questions written
+     * in another, mounts in a language none of the texts exist in. */
+    if (mounted && declared.length && declared.indexOf(mounted) < 0) {
+      issues.push({ level: 'warn', where: forced ? 'data-lang' : '<html lang>',
+        message: fmt(S.pageLang, { page: mounted, tree: declared.join(', ') }) });
+    }
+    var block = contentBlock(text);
+    var source = block === null ? text : block;
+    var offset = block === null ? 0 : text.slice(0, text.indexOf(block)).split('\n').length - 1;
+    String(source).split('\n').forEach(function (line, i) {
+      var where = fmt(S.line, { n: i + 1 + offset });
+      /* One finding per line, naming WHICH invisible space it is: two of them
+       * on one line is one thing to fix, and the code point is what tells the
+       * adopter which escape to write. */
+      var found = NBSPS.filter(function (s) { return line.indexOf(s.ch) >= 0; });
+      if (found.length) issues.push({ level: 'warn', where: where,
+        message: fmt(S.literalNbsp, { code: found.map(function (s) { return s.code; }).join(', ') }) });
+      if (/:\s*'/.test(line) && /’|\w'\w/.test(line)) issues.push({ level: 'warn', where: where, message: S.quoteApostrophe });
+    });
+    return issues;
+  }
+
+  /* The title, the page heading and the standfirst live OUTSIDE the tree, so
+   * guard() never reads them, and they are the largest words on the page. A copy
+   * that rewrote its questions and kept the origin's headline goes live wearing
+   * that headline. This page reads the whole file, so it is the only one that
+   * can say so. Pure, and separate from analyse(), so the harness can sweep it
+   * on one line of markup instead of re-reading a whole file per variant. */
+  var ACCENT = { grave: '\u0300', acute: '\u0301', circ: '\u0302', tilde: '\u0303',
+                 uml: '\u0308', ring: '\u030a', cedil: '\u0327' };
+  /* Only the named entities that can HIDE inside a reserved term: the ones that
+   * paint a space, an invisible, an ampersand or the underscore of AI_GO. The
+   * accented letters are handled by rule above, and every numeric form below. */
+  var NAMED = { amp: '&', nbsp: ' ', ensp: ' ', emsp: ' ', emsp13: ' ', emsp14: ' ', numsp: ' ',
+    puncsp: ' ', thinsp: ' ', hairsp: ' ', lowbar: '_', UnderBar: '_', shy: '\u00ad',
+    zwnj: '\u200c', zwj: '\u200d', lrm: '\u200e', rlm: '\u200f', ZeroWidthSpace: '\u200b',
+    NoBreak: '\u2060', ApplyFunction: '\u2061', InvisibleTimes: '\u2062', InvisibleComma: '\u2063' };
+  var fromCode = String.fromCodePoint || String.fromCharCode;
+  /* The typography tool and the escape rule cover the CONTENT BLOCK and nothing
+   * else, so everything outside it is this function's business. The premise
+   * written here before was that "outside" meant "above": it read text.slice(0,
+   * position of AI_GO-CONTENT-BEGIN), which in the file this repository ships
+   * is the <title> and not one character more. The <h1> and the standfirst, the
+   * two largest lines on the page, and the ones the README tells an adopter to
+   * write themselves, sit twenty lines BELOW AI_GO-CONTENT-END and were never
+   * looked at. Both sides are read now, line by line, so the finding says which
+   * line to open. Reported wherever the page is served: unlike a reserved term,
+   * this one has nothing to do with the domain. */
+  function chromeSpaces(text) {
+    var issues = [], r = contentRange(text), lines = String(text).split('\n');
+    /* Line numbers first, then the block cut out of them, so a finding below the
+     * block still names its true line in the file. */
+    var inBlock = function (from, to) {
+      return r !== null && from < r.end && to > r.start;
+    };
+    var at = 0;
+    lines.forEach(function (line, i) {
+      var from = at, to = at + line.length;
+      at = to + 1;
+      if (inBlock(from, to)) return;
+      var found = NBSPS.filter(function (s) { return line.indexOf(s.ch) >= 0; });
+      if (!found.length) return;
+      issues.push({ level: 'warn', where: fmt(S.line, { n: i + 1 }),
+        message: fmt(S.chromeNbsp, { code: found.map(function (s) { return s.code; }).join(', ') }) });
+    });
+    return issues;
+  }
+  function under(host, home) {
+    return !!home && !!host && (host === home || host.slice(-(home.length + 1)) === '.' + home);
+  }
+  /* THE DOMAIN FIELD IS OPTIONAL AND EMPTY BY DEFAULT, which is the state this
+   * page is in when a legal officer opens it for the first and only time. In
+   * that state this finding used to be demoted to a warning, and warnings were
+   * counted in the banner and drawn nowhere, so a file whose standfirst read
+   * "adapted from the AI_GO questionnaire of the University of Lausanne" was
+   * answered with "Nothing to complete: the engine will display this content."
+   * The same file, one domain typed, was two blocking errors. That was the most
+   * dangerous green light in this repository, and it was the default.
+   *
+   * There is no need to demote anything, because the missing domain is not what
+   * this check needs. With no domain we cannot ask the PAGE where it is served,
+   * so we ask the FILE whose it is: a content block whose declared publisher
+   * domains all sit under the origin's domain is the origin's own file, and its
+   * headline may name the origin. Anything else is a copy, and a copy wearing
+   * the origin's name in its largest words is wrong on every domain, not only
+   * on the one nobody typed. The tree is optional so that the older three-
+   * argument call still means what it always meant. */
+  /* CE QUE LA PAGE MONTRE, hors scripts, styles et commentaires, avec les
+   * references de caracteres resolues comme un navigateur les resout. Sorti de
+   * chromeTerms sans qu'une ligne change, parce que deux controles s'en servent
+   * desormais : les noms reserves, qui ne valent que hors du domaine d'origine,
+   * et les textes a remplacer, qui valent partout.
+   *
+   * `text` est le fichier entier ; ce qui sort est ce qu'un lecteur lit. */
+  function chromeText(text) {
+    var chrome;
+    /* What the page SHOWS: the title and the body markup, with every script,
+     * style and comment removed. The markers carry the tool's own name, and they
+     * are structure, not chrome. Tags assembled, since this file may not contain
+     * one inside a script body. */
+    /* LA FERMETURE S'ECRIT DE PLUSIEURS FACONS, et un navigateur les ferme
+     * toutes : une espace avant le chevron, une barre oblique, un saut de ligne.
+     * Exiger la forme courte faisait echouer le retrait, si bien que le code du
+     * moteur devenait du « texte visible » et tombait sous les controles ecrits
+     * pour ce qu'un lecteur lit. */
+    var strip = function (t, tag) {
+      return t.replace(new RegExp('<' + tag + '[\\s\\S]*?<\\/' + tag + '[^>]*>', 'gi'), ' ');
+    };
+    var chrome = strip(strip(String(text), 'scr' + 'ipt'), 'sty' + 'le')
+      /* UN COMMENTAIRE NE SEPARE RIEN A L'ECRAN. Il etait remplace par une
+       * espace, si bien qu'un marqueur coupe en deux par un commentaire, que
+       * Chrome dessine TO_FILL_IN d'un seul tenant, n'en etait plus un ici. Un navigateur le
+       * retire sans rien mettre a la place ; on fait pareil. */
+      .replace(new RegExp('<' + '!--[\\s\\S]*?--' + '>', 'g'), '');
+    /* A browser paints &eacute; as an e with an accent, and &#x200b; as nothing
+     * at all. Reading the source undecoded let the origin's name sit in a title
+     * untouched. The semicolon is optional because a browser makes it optional.
+     * Numeric: every code point, astral included, which fromCharCode truncated. */
+    chrome = chrome
+      .replace(/&#(\d+);?/g, function (m, d) { return +d <= 0x10ffff ? fromCode(+d) : m; })
+      .replace(/&#x([0-9a-f]+);?/gi, function (m, h) {
+        return parseInt(h, 16) <= 0x10ffff ? fromCode(parseInt(h, 16)) : m;
+      })
+      /* By rule, not by list: seven diacritics on any letter, decomposed, which
+       * the normalisation below then folds away exactly as it folds a typed one. */
+      .replace(/&([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil);?/g,
+        function (m, l, a) { return l + ACCENT[a]; })
+      /* ET LES TROIS ALPHABETS STYLISES, par regle eux aussi. &Uopf; &Ufr; et
+       * &Uscr; nomment un U ajoure, gothique ou anglaise ; aucun n'etait dans la
+       * table, et &Uopf;&Nopf;&Iopf;&Lopf; peignait le nom d'origine sous un
+       * verdict « publiable ». On rend la LETTRE et non le glyphe : c'est
+       * exactement ce que le repli du moteur en aurait fait, et cela ne peut pas
+       * se tromper sur laquelle des vingt-six c'est. */
+      .replace(/&([A-Za-z])(opf|fr|scr);?/g, function (m, l) { return l; })
+      .replace(/&([A-Za-z][A-Za-z0-9]*)(;?)/g, function (m, n, semi) {
+        var has = function (k) { return Object.prototype.hasOwnProperty.call(NAMED, k); };
+        if (semi) return has(n) ? NAMED[n] : m;
+        /* Without the semicolon a browser takes the LONGEST name it knows and
+         * leaves the rest of the word where it stands, which is how &shyIL
+         * paints UNIL with a hyphenation point nobody sees. */
+        for (var i = n.length; i > 0; i--) if (has(n.slice(0, i))) return NAMED[n.slice(0, i)] + n.slice(i);
+        return m;
+      });
+    /* CE QU'UNE BALISE SEPARE, ET CE QU'ELLE NE SEPARE PAS. Les balises
+     * restaient dans le texte cherche, si bien qu'un mot coupe par l'une d'elles
+     * n'etait plus le mot : TO_<span>FILL</span>_IN est dessine TO_FILL_IN par
+     * tout navigateur. Les retirer TOUTES sans rien mettre a la place serait
+     * l'erreur inverse -- <p>UN</p><p>IL</p> se lit sur deux lignes et n'est pas
+     * le nom -- alors la regle est celle du rendu : un element EN LIGNE joint,
+     * tout le reste separe. */
+    var INLINE = 'a|abbr|b|bdi|bdo|cite|code|data|dfn|em|i|kbd|mark|q|rp|rt|ruby|'
+      + 's|samp|small|span|strong|sub|sup|time|u|var|wbr';
+    chrome = chrome
+      .replace(new RegExp('<\\/?(?:' + INLINE + ')(?:\\s[^>]*)?>', 'gi'), '')
+      .replace(/<[^>]*>/g, ' ');
+    return chrome;
+  }
+  /* LES TEXTES A REMPLACER, HORS DE L'ARBRE. Le garde du moteur parcourt
+   * l'arbre, et c'est son perimetre : le titre de la page, le grand titre, le
+   * chapeau et le message affiche quand JavaScript ne s'execute pas n'en font
+   * pas partie. Un message de repli livre avec un TO_FILL_IN dedans -- le seul
+   * texte que voit un lecteur sans JavaScript -- a traverse un verdict
+   * « publiable, rien a signaler » sans un mot, alors que le guide promet de
+   * l'attraper « ou que ce soit ». Cette page lit deja tout ce que la page
+   * montre : le controle manquait ici, pas dans le moteur. */
+  function chromeSentinels(text, engine) {
+    var issues = [];
+    if (!engine || !engine.POLICY) return issues;
+    var chrome = chromeText(text);
+    arr(engine.POLICY.sentinels).forEach(function (word) {
+      if (chrome.indexOf(word) >= 0) {
+        /* Un avertissement, comme son voisin chromeTerm, et pour la meme
+         * raison : le moteur ne lit pas la page, donc il PUBLIERA ceci tel
+         * quel. « Publiable » reste vrai ; ce qui manquait etait le mot. Un
+         * avertissement est compte dans la banniere et dessine dans le tableau
+         * de coherence, ce qu'une erreur de structure n'est pas -- elle rangeait
+         * dans l'arbre un defaut qui est dans la page. */
+        issues.push({ level: 'warn', where: 'page',
+          message: fmt(S.chromeSentinel, { sentinel: word }) });
+      }
+    });
+    return issues;
+  }
+  function chromeTerms(text, engine, host, tree) {
+    var issues = [];
+    if (!engine || !engine.POLICY) return issues;
+    var home = String(engine.POLICY.homeDomain || '');
+    var declared = tree && isObject(tree.publisher) ? arr(tree.publisher.domains) : [];
+    var ownFile = declared.length > 0 && declared.every(function (d) {
+      return under(String(d).trim().toLowerCase(), home);
+    });
+    var atHome = host ? under(host, home) : ownFile;
+    if (atHome) return issues;
+    var chrome = chromeText(text);
+    /* Read with the ENGINE'S OWN normaliser, never a copy of it: a second copy
+     * here is precisely how the lock came to hold in the questions and not in
+     * the headline above them. An engine too old to lend one is read raw, which
+     * is the verdict that engine gives everywhere else on this page too. */
+    var forms = typeof engine.plain === 'function' ? engine.plain(chrome) : [chrome];
+    engine.POLICY.reservedTerms.forEach(function (re) {
+      for (var i = 0; i < forms.length; i++) {
+        var m = forms[i].match(re);
+        if (m) {
+          issues.push({ level: 'error', where: S.whereChrome,
+            message: fmt(S.chromeTerm, { term: m[0], origin: engine.POLICY.homeName }) });
+          return;
+        }
+      }
+    });
+    return issues;
+  }
+
+  /* ---------------------------------------------------------------- render */
+
+  function table(rows) {
+    var t = el('table');
+    var head = el('tr');
+    [S.level, S.where, S.msg].forEach(function (h) { head.appendChild(el('th', null, h)); });
+    t.appendChild(head);
+    rows.forEach(function (r) {
+      var tr = el('tr');
+      tr.appendChild(el('td', 'lvl lvl-' + r.level, r.level === 'error' ? '✗' : '⚠'));
+      tr.appendChild(el('td', null, r.where));
+      tr.appendChild(el('td', null, r.message));
+      t.appendChild(tr);
+    });
+    return t;
+  }
+  function fail(head, hint, detail) {
+    out.appendChild(el('div', 'verdict v-bad', head));
+    if (hint) out.appendChild(el('p', 'muted', hint));
+    if (detail) out.appendChild(el('pre', null, detail));
+  }
+
+  function analyse(text) {
+    out.textContent = '';
+
+    var mk = markers(text);
+    var eng = loadEngine(text);
+    var loaded = loadContent(text);
+
+    if (loaded.error) { fail(S.syntax, S.syntaxHint, String(loaded.error.message || loaded.error)); return null; }
+    if (loaded.missing) { fail(loaded.head || S.noContent, loaded.hint || S.noContentHint); return null; }
+    if (eng.error) { fail(S.engineBroken, null, String(eng.error.message || eng.error)); return null; }
+
+    var tree = loaded.value;
+    var engine = eng.value || null;
+    var report = { tree: tree, engine: engine };
+
+    var structureIssues = [], guardIssues = [], all = [], crashed = [];
+    try { all = paths(tree); } catch (e) { crashed.push(e.message); }
+    try { if (engine) structureIssues = engine.structure(tree); } catch (e) { crashed.push(e.message); }
+    /* Computed here and not where it is printed: a fingerprint that throws is a
+     * failed check, and a failed check has to reach the banner rather than take
+     * the whole render down after the banner has already said "publishable". */
+    try { if (engine) report.hash = engine.fingerprint(tree); } catch (e) { crashed.push(e.message); }
+    /* AND THE OTHER HALF. This page printed the fingerprint alone and told the
+     * reader that nothing signed had moved. A copy that renamed its steps and
+     * relabelled its buttons moved nothing the fingerprint covers, so the
+     * sentence was drawn, in full, over a page whose every visible word around
+     * the questions had changed. The engine has signed both since 3.0.18; this
+     * page now shows both. */
+    try { if (engine && engine.signature) report.sig = engine.signature(tree); }
+    catch (e) { crashed.push(e.message); }
+    /* The hostname decides part of the verdict, so this page asks for it rather
+     * than guessing. Left empty it means "a domain, unnamed": the declaration
+     * check is skipped, everything else is reported. Passing "" used to read as
+     * "local", which granted the origin its own exemption and declared a
+     * verbatim copy of the origin's questionnaire publishable anywhere. */
+    var typed = ((document.getElementById('host') || {}).value || '').trim().toLowerCase();
+    var host = typed.replace(/\\/g, '/').replace(/^[a-z][a-z0-9+.-]*:\/\//, '').replace(/^\/\//, '')
+      .replace(/[\/?#].*$/, '').replace(/:\d+$/, '');
+    /* Typed but unreadable is not the same as left empty: an unreadable entry
+     * would otherwise skip the domain check in silence. Keep it as typed and let
+     * the guard refuse it. */
+    if (typed && !host) host = typed;
+    try { if (engine) guardIssues = engine.guard(tree, host); } catch (e) { crashed.push(e.message); }
+    var extra = [];
+    try { extra = extras(tree, all, engine); } catch (e) { crashed.push(e.message); }
+    var srcIssues = lintContent(text, tree);
+
+    /* ai-go.html says this page lists the interface keys a language is missing.
+     * It did not, and a third language went live half in English with a green
+     * verdict. The engine ships English and French; anything else is the
+     * adopter's to provide, key by key. */
+    var uiIssues = [];
+    if (engine && engine.UI && isObject(engine.UI.en)) {
+      var shipped = Object.keys(engine.UI);
+      var wanted = Object.keys(engine.UI.en);
+      /* UNE LANGUE A REGION EST LA LANGUE. Le moteur sert « fr-CH » avec les
+       * libelles de « fr » ; sans cette ligne, l'accuser de n'en fournir aucun
+       * serait un reproche sur une page correcte. */
+      var primary = function (l) { return String(l).toLowerCase().split(/[-_]/)[0]; };
+      arr(tree.langs).forEach(function (l) {
+        if (shipped.indexOf(l) >= 0 || shipped.indexOf(primary(l)) >= 0) return;
+        var given = isObject(tree.ui) && isObject(tree.ui[l]) ? tree.ui[l] : {};
+        /* `msg` EST UN OBJET, ET ON COMPTE CE QU'IL PORTE. L'exiger comme une
+         * chaine accusait une langue traduite de bout en bout ; n'en verifier
+         * que la FORME a echange ce faux positif contre un faux negatif, car
+         * `msg: {}` -- la retouche exacte qu'on fait pour eteindre un
+         * avertissement -- passait alors pour une traduction complete et
+         * laissait les quarante-deux phrases de refus en anglais. Le moteur y
+         * retombe phrase par phrase : on les compte phrase par phrase, et on
+         * les NOMME, pour que ce soit un avertissement et jamais un refus. */
+        var miss = [];
+        wanted.forEach(function (k) {
+          if (k !== 'msg') {
+            if (typeof given[k] !== 'string' || !given[k]) miss.push(k);
+            return;
+          }
+          var m = isObject(given.msg) ? given.msg : null;
+          Object.keys(engine.UI.en.msg).forEach(function (mk) {
+            if (!m || typeof m[mk] !== 'string' || !m[mk]) miss.push('msg.' + mk);
+          });
+        });
+        if (miss.length) uiIssues.push({ level: 'warn', where: 'ui.' + l,
+          message: fmt(S.uiMissing, { lang: l, keys: miss.join(', ') }) });
+      });
+    }
+
+    var chromeIssues = chromeTerms(text, engine, host, tree).concat(chromeSentinels(text, engine));
+
+    /* THE STATE OF THE MARKERS IS PART OF THE VERDICT. markers() has always been
+     * right and has always been printed in small grey type below the banner,
+     * outside the calculation: a file carrying its content block twice, which
+     * this page reads once and a browser mounts the other way round, kept a
+     * green banner reading "Publishable". See markersDup and its two
+     * neighbours for why one of the three is a warning and two are not. */
+    var markerRows = [];
+    if (mk.duplicated.length) markerRows.push({ level: 'error', where: S.whereMarkers, message: fmt(S.markersDup, { list: mk.duplicated.join(', ') }) });
+    if (mk.disordered.length) markerRows.push({ level: 'error', where: S.whereMarkers, message: fmt(S.markersOrder, { list: mk.disordered.join(', ') }) });
+    if (mk.missing.length) markerRows.push({ level: 'warn', where: S.whereMarkers, message: fmt(S.markersMissing, { list: mk.missing.join(', ') }) });
+    /* An engine block edited locally is a receipt about a page whose behaviour
+     * nobody in this repository can vouch for. Printed since the beginning, and
+     * counted in nothing, exactly like the markers above. */
+    if (!eng.missing && eng.declared && eng.declared.h !== eng.computed) {
+      markerRows.push({ level: 'warn', where: S.whereEngine,
+        message: fmt(S.engineChanged, { v: eng.declared.v, d: eng.declared.h, c: eng.computed }) });
+    }
+    /* A script of the dropped file that threw. The browser drops it and mounts
+     * all the same, so this is never blocking; but a decorative script that
+     * silently did nothing is exactly the kind of thing an adopter wants told. */
+    var scriptRows = arr(loaded.run && loaded.run.errors).map(function (e) {
+      return { level: 'warn', where: S.whereScript,
+        message: fmt(S.scriptThrew, { msg: String((e && e.message) || e) }) };
+    });
+    /* ET CE QUI N'A PAS ETE EXECUTE, DIT A CHAQUE FOIS. Cette reserve n'etait
+     * posee que sur la branche ou l'arbre reste introuvable : des qu'un script
+     * en ligne l'avait declare, un module ou un script charge depuis un autre
+     * fichier etait saute sans un mot, et le verdict decrivait une page que le
+     * navigateur ne sert pas. Une reserve qui ne vaut que quand tout va mal
+     * n'est pas une reserve. */
+    var notRun = arr(loaded.run && loaded.run.skipped).filter(function (x) {
+      return x.skip !== 'engine' && x.skip !== 'comment';
+    });
+    if (notRun.length) {
+      scriptRows.push({ level: 'warn', where: S.whereScript,
+        message: fmt(S.notRunHint, { n: notRun.length }).replace(/^\s+/, '') });
+    }
+
+    var errors = structureIssues.map(function (i) { return { level: 'error', where: i.path, message: i.message }; })
+      .concat(extra.filter(function (i) { return i.level === 'error'; }))
+      .concat(chromeIssues.filter(function (i) { return i.level === 'error'; }))
+      .concat(markerRows.filter(function (i) { return i.level === 'error'; }));
+    /* EVERY WARNING THE BANNER COUNTS IS DRAWN SOMEWHERE. These are the ones the
+     * coherence table draws; srcIssues has a section of its own, below, and is
+     * added to the count on the next line and to nothing else. A warning
+     * counted here and rendered nowhere is a warning nobody can act on, and it
+     * is what a data protection officer got when a file answered "Publishable,
+     * 1 warning(s)" and then "Nothing to report." */
+    var coherenceWarns = extra.filter(function (i) { return i.level === 'warn'; })
+      .concat(chromeIssues.filter(function (i) { return i.level === 'warn'; }))
+      .concat(chromeSpaces(text)).concat(uiIssues)
+      .concat(markerRows.filter(function (i) { return i.level === 'warn'; }))
+      .concat(scriptRows);
+    var warns = coherenceWarns.concat(srcIssues);
+    var shownRows = errors.concat(coherenceWarns);
+
+    var cls, head;
+    if (crashed.length) { cls = 'v-bad'; head = S.crashed + crashed.join(' / '); }
+    else if (errors.length) { cls = 'v-bad'; head = fmt(S.bad, { n: errors.length }); }
+    else if (eng.missing) { cls = 'v-warn'; head = S.engineNone; }
+    else if (guardIssues.length) { cls = 'v-warn'; head = fmt(S.notPublishable, { n: guardIssues.length }); }
+    else if (warns.length) { cls = 'v-warn'; head = fmt(S.okWarn, { n: warns.length }); }
+    else { cls = 'v-ok'; head = S.ok; }
+    var v = el('div', 'verdict ' + cls);
+    v.appendChild(el('span', null, head));
+    v.appendChild(el('small', null, fmt(S.counts, {
+      nodes: Object.keys(tree.nodes || {}).length, results: Object.keys(tree.results || {}).length, paths: all.length
+    })));
+    v.appendChild(el('small', null, host ? fmt(S.verdictFor, { host: host }) : S.verdictForNone));
+    out.appendChild(v);
+
+    /* -------- the file itself */
+    out.appendChild(el('h2', null, S.fileH));
+    out.appendChild(el('p', 'muted', mk.ok ? S.markersOk : fmt(S.markersBad, { list: mk.wrong.join(', ') })));
+    if (eng.missing) out.appendChild(el('p', 'muted', S.engineNone));
+    else if (eng.declared && eng.declared.h === eng.computed) {
+      out.appendChild(el('p', 'muted', fmt(S.engineIntact, { v: eng.declared.v })));
+    } else if (eng.declared) {
+      out.appendChild(el('p', null, fmt(S.engineChanged, { v: eng.declared.v, d: eng.declared.h, c: eng.computed })));
+    }
+    if (report.hash) {
+      out.appendChild(el('p', 'mono', fmt(S.prints, { hash: report.hash })));
+      out.appendChild(el('p', 'muted', S.printsLead));
+      if (report.sig) {
+        out.appendChild(el('p', 'mono', fmt(S.signs, { hash: report.sig })));
+        out.appendChild(el('p', 'muted', S.signsLead));
+      }
+    }
+    var meta = [];
+    meta.push(tree.review && tree.review.date ? fmt(S.reviewed, { date: tree.review.date, by: tree.review.by || '?' }) : '! ' + S.noReview);
+    if (tree.jurisdiction) meta.push(fmt(S.jurisdiction, { j: tree.jurisdiction }));
+    if (tree.legalBasis) meta.push(fmt(S.legalBasis, { b: [].concat(tree.legalBasis).join(', ') }));
+    out.appendChild(el('p', 'muted', meta.join(' · ')));
+
+    /* -------- publication, from the engine of this very file */
+    if (!eng.missing) {
+      out.appendChild(el('h2', null, S.publication));
+      out.appendChild(el('p', 'muted', host ? fmt(S.publicationLeadHost, { host: host }) : S.publicationLead));
+      if (guardIssues.length) out.appendChild(table(guardIssues.map(function (g) {
+        return { level: 'error', where: g.path, message: g.message };
+      })));
+      else if (errors.length) out.appendChild(el('p', null, fmt(S.publicationOkBlocked, { n: errors.length })));
+      else out.appendChild(el('p', 'muted', S.publicationOk));
+    }
+
+    /* -------- coherence */
+    out.appendChild(el('h2', null, S.coherence));
+    out.appendChild(el('p', 'muted', S.coherenceLead));
+    if (shownRows.length) out.appendChild(table(shownRows));
+    else out.appendChild(el('p', 'muted', S.coherenceOk));
+
+    if (srcIssues.length) {
+      out.appendChild(el('h2', null, S.source));
+      out.appendChild(table(srcIssues));
+    }
+
+    /* -------- paths */
+    out.appendChild(el('h2', null, S.pathsH + ' (' + all.length + ')'));
+    if (all.truncated) out.appendChild(el('p', null, S.truncated));
+    out.appendChild(el('p', 'muted', S.pathsLead));
+    var ul = el('ul', 'paths');
+    all.map(pathKey).sort().forEach(function (k) { ul.appendChild(el('li', null, k)); });
+    out.appendChild(ul);
+
+    /* -------- update */
+    out.appendChild(el('h2', null, S.updateH));
+    out.appendChild(el('p', 'muted', S.updateLead));
+    if (!previous) out.appendChild(el('p', 'muted', S.updateNone));
+    else {
+      var d = routingDiff(previous.tree, tree);
+      out.appendChild(el('p', null, (d.added.length + d.removed.length)
+        ? fmt(S.routingMoved, { a: d.added.length, r: d.removed.length })
+        : fmt(S.routingSame, { n: d.unchanged })));
+      if (previous.hash && report.hash) {
+        out.appendChild(el('p', 'mono', previous.hash === report.hash
+          ? fmt(S.printsSame, { h: report.hash })
+          : fmt(S.printsMoved, { ho: previous.hash, hn: report.hash })));
+      }
+      if (previous.sig && report.sig) {
+        out.appendChild(el('p', 'mono', previous.sig === report.sig
+          ? fmt(S.signsSame, { h: report.sig })
+          : fmt(S.signsMoved, { ho: previous.sig, hn: report.sig })));
+      }
+      if (d.added.length + d.removed.length) {
+        var cul = el('ul', 'paths');
+        d.removed.forEach(function (k) { cul.appendChild(el('li', null, '- ' + k)); });
+        d.added.forEach(function (k) { cul.appendChild(el('li', null, '+ ' + k)); });
+        out.appendChild(cul);
+      }
+    }
+    /* What the banner counted and what the page drew, side by side, so the rule
+     * "every counted warning is rendered somewhere" is something a test can
+     * assert instead of something a comment can promise. */
+    report.rows = { errors: errors, warns: warns, shown: shownRows.concat(srcIssues) };
+    return report;
+  }
+
+  /* ------------------------------------------------------------ plumbing */
+
+  function run(text, remember) {
+    if (remember && last) previous = last;
+    var r = analyse(text);
+    if (r) { r.text = text; last = r; }
+  }
+  function label() {
+    setText('t-title', S.title); setText('t-lead', S.lead); setText('t-drop', S.drop);
+    setText('t-hostLabel', S.hostLabel); setText('t-langLabel', S.langLabel);
+    setText('t-exec', S.exec); setText('t-foot', S.foot);
+    setText('t-pasteHead', S.pasteHead); setText('pasteGo', S.pasteGo);
+    ['fr', 'en'].forEach(function (code) {
+      var b = document.getElementById('lang-' + code);
+      if (b) b.setAttribute('aria-pressed', code === lang ? 'true' : 'false');
+    });
+  }
+  function read(f) {
+    var r = new FileReader();
+    r.onload = function () { run(String(r.result), true); };
+    r.readAsText(f, 'utf-8');
+  }
+
+  /* Everything above is pure. Under Node it is all the harness needs; in a
+   * browser the page wires itself below. */
+  var API = {
+    S: S, MARKS: MARKS, NBSP: NBSP, NNBSP: NNBSP, markers: markers, mountNames: mountNames,
+    contentBlock: contentBlock, contentRange: contentRange, engineBlock: engineBlock,
+    innerScript: innerScript, canonicalBlock: canonicalBlock, inlineScripts: inlineScripts, markupOnly: markupOnly,
+    runFile: runFile, hashOf: hashOf, walkStrings: walkStrings,
+    loadContent: loadContent, loadEngine: loadEngine,
+    paths: paths, pathKey: pathKey, routingDiff: routingDiff,
+    extras: extras, lintContent: lintContent, chromeText: chromeText, chromeTerms: chromeTerms, chromeSentinels: chromeSentinels, chromeSpaces: chromeSpaces, analyse: analyse,
+    setLang: setLang, lang: function () { return lang; }
+  };
+  if (typeof document === 'undefined') return API;
+
+  /* WHICH LANGUAGE THIS PAGE OPENS IN. The reader decides, in this order: the
+   * choice they made in this tab, then the languages their browser asks for,
+   * then the one this file ships with, which is French. `documentElement` is
+   * what says a real page is being rendered: loaded as a library, by the
+   * harness or by a script of your own, there is no page and no reader, the
+   * base table stands, and the same file therefore reads the same on every
+   * machine.
+   *
+   * WHY THE WHOLE LIST, AND NOT navigator.language. That property is ONE tag,
+   * the first of the list, and a browser configured in a language this page is
+   * not written in reports that one: a delegate whose browser announced
+   * "fr-FR" was served this page in English because her list read
+   * ["de-CH", "fr-FR", "en"] and only the head of it was read. The list is
+   * ordered by the reader's own preference, so the first entry this page can
+   * honour is the right answer; navigator.language stays as the fallback for a
+   * browser too old to carry the list.
+   *
+   * WHY THE CHOICE IS KEPT, AND WHERE. Clicking English and reloading gave
+   * English for one second and the browser's answer for good, which reads as a
+   * button that does not work. It is kept in sessionStorage, the storage the
+   * engine already uses for its answers: it dies with the tab, it never
+   * crosses to another machine, and a reload keeps it. Only the CHOICE is
+   * kept, never a file and never a verdict: two people comparing two verdicts
+   * still compare two verdicts, in whichever language each of them reads. Both
+   * calls are wrapped, because a file:// page in a browser set to refuse site
+   * data throws on the accessor itself, and a validator that blanks on a
+   * storage setting is worse than one that forgets. */
+  var PAGE_LANGS = ['fr', 'en'];
+  var LANG_KEY = 'aigo:check:lang';
+  function primaryTag(tag) { return String(tag == null ? '' : tag).split(/[-_]/)[0].toLowerCase(); }
+  function remembered() {
+    try {
+      var v = window.sessionStorage.getItem(LANG_KEY);
+      return PAGE_LANGS.indexOf(v) >= 0 ? v : null;
+    } catch (e) { return null; }
+  }
+  function remember(code) {
+    try { window.sessionStorage.setItem(LANG_KEY, code); } catch (e) { /* storage refused */ }
+  }
+  function preferred() {
+    var root = document.documentElement;
+    if (!root || typeof root.getAttribute !== 'function') return 'en';
+    var kept = remembered();
+    if (kept) return kept;
+    /* Array-like, not an array, in more than one browser: read by length. */
+    var nav = typeof navigator !== 'undefined' ? navigator : null;
+    var list = nav && nav.languages && typeof nav.languages.length === 'number' ? nav.languages : [];
+    var asked = [];
+    for (var i = 0; i < list.length; i++) asked.push(list[i]);
+    if (nav && nav.language) asked.push(nav.language);
+    for (var j = 0; j < asked.length; j++) {
+      if (PAGE_LANGS.indexOf(primaryTag(asked[j])) >= 0) return primaryTag(asked[j]);
+    }
+    /* Neither: the language this file is written in, which its own markup
+     * declares. English only if that markup says English. */
+    return primaryTag(root.getAttribute('lang')) === 'en' ? 'en' : 'fr';
+  }
+  /* setLang fills the table; this carries the choice into the document, so that
+   * a screen reader changes voice with the page and the tab is named in the
+   * language the reader is reading. */
+  function speak(code) {
+    setLang(code);
+    var root = document.documentElement;
+    if (root && typeof root.setAttribute === 'function') root.setAttribute('lang', lang);
+    try { document.title = S.pageTitle; } catch (e) { /* not a page: nothing to name */ }
+  }
+  /* Exported so the harness can assert the rule rather than a screenshot of it:
+   * the reader's list in, one of the two languages out. */
+  API.preferred = preferred;
+  speak(preferred());
+
+  out = document.getElementById('out');
+  drop = document.getElementById('drop');
+  file = document.getElementById('file');
+  paste = document.getElementById('paste');
+
+  document.getElementById('pasteGo').addEventListener('click', function () {
+    if (paste.value.trim()) run(paste.value, true);
+  });
+  file.addEventListener('change', function () { if (file.files[0]) read(file.files[0]); });
+  drop.addEventListener('click', function (e) { if (e.target !== file) file.click(); });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) read(e.dataTransfer.files[0]); });
+
+  /* The domain is half the verdict. Typed after the file was dropped, it used to
+   * change nothing on screen: the reader was left with a verdict computed for
+   * another domain. Re-run the analysis on the file already loaded, without
+   * touching `previous`, which belongs to the update comparison. */
+  var hostTimer = null;
+  function reanalyse() { if (last && last.text) run(last.text, false); }
+  var hostField = document.getElementById('host');
+  hostField.addEventListener('change', reanalyse);
+  hostField.addEventListener('input', function () {
+    if (hostTimer) clearTimeout(hostTimer);
+    hostTimer = setTimeout(reanalyse, 400);
+  });
+
+  ['fr', 'en'].forEach(function (code) {
+    var b = document.getElementById('lang-' + code);
+    if (!b) return;
+    b.addEventListener('click', function () {
+      /* Remembered on the CLICK and nowhere else: what is kept is a decision a
+       * reader made, never a language this page guessed for them. */
+      remember(code);
+      speak(code); label();
+      /* The verdict is chrome too: re-render it in the language just chosen,
+       * without touching `previous`, which belongs to the update comparison. */
+      if (last && last.text) run(last.text, false);
+    });
+  });
+
+  label();
+  return API;
+})();
+</script>
+</body>
+</html>
