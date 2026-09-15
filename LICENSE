@@ -1,0 +1,75 @@
+WHAT THIS LICENCE COVERS
+
+This repository is not under a single licence, and a scanner that reads only
+this file will get it wrong. Three regimes apply:
+
+  - ai-go.html AS A WHOLE, check.html, test/run.mjs, tools/typographie.mjs and
+    this LICENSE file itself: the BSD 3-Clause licence below.
+    SPDX-License-Identifier: BSD-3-Clause
+    AS A WHOLE means every line of ai-go.html, the doctype, the
+    Content-Security-Policy, the <title> and the closing tags included. It
+    also, and deliberately, covers the 59 lines that lie OUTSIDE the two
+    blocks inside the region from AI_GO-BEGIN to AI_GO-END, which is the
+    region docs/INTEGRATE.md tells you to paste into a CMS: the header
+    comment, the <script> tags around the content, the <main> wrapper, the
+    <h1>, the standfirst, the container <div>, the author <style> and the
+    closing markers. Naming only the two blocks left that region conceded by
+    nobody.
+  - The content block of ai-go.html, the tree format it demonstrates and
+    docs/DEMARRER.md, which is that same form left blank, are offered under
+    CC0-1.0 as well: take them that way and you owe nothing, not even the
+    notice. Where the two regimes overlap, you choose.
+  - reference/aigo-unil.js, reference/aigo-unil.paths.js, docs/ARBRE.md and
+    docs/capture.png, that is the questionnaire content of the University of
+    Lausanne: ALL RIGHTS RESERVED. Published for reference, not licensed for
+    reuse. Read docs/INTEGRATE.md for why copying it would be dangerous
+    rather than merely forbidden.
+
+  - Everything else in this repository, that is README.md, CHANGELOG.md,
+    CONTRIBUTING.md, SECURITY.md, CITATION.cff, docs/DEMARRER.md,
+    docs/INTEGRATE.md, docs/PUBLICATIONS.md, .gitignore
+    and .github/workflows/test.yml: the BSD 3-Clause licence below as well.
+    docs/DEMARRER.md is named twice on purpose: it is under both, and the
+    "as well" above only means something if it is. Take it either way.
+
+CONDITION 1 APPLIES TO EVERY FILE ABOVE, ONE BY ONE
+
+Clause 1 asks that the copyright notice, the conditions and the disclaimer be
+retained in redistributions of source. A single file taken out of this
+repository carries a short notice naming this licence, and this file is what
+that notice points to: SHIP THIS FILE WITH THEM. The two integration paths in
+docs/INTEGRATE.md, the standalone upload and the block pasted into a CMS, both
+distribute ai-go.html; put LICENSE beside it, or the warranty disclaimer that
+protects both you and the copyright holder does not travel with the code.
+
+--------------------------------------------------------------------------
+
+BSD 3-Clause License
+
+Copyright (c) 2026, Université de Lausanne, Cellule stratégique IA
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
