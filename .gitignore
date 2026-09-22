@@ -1,0 +1,9 @@
+# Proprietary assets are never committed: fonts, logos, design-system files.
+assets/
+*.woff2
+*.woff
+*.otf
+*.ttf
+
+.DS_Store
+Thumbs.db
